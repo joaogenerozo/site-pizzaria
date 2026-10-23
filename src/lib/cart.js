@@ -34,7 +34,17 @@ export function itemKey(i) {
   return JSON.stringify([i.productId, i.sizeId, [...i.flavorIds].sort(), i.crustId, [...i.extraIds].sort(), i.notes]);
 }
 
-export function createCart(storage = globalThis.localStorage) {
+// Em alguns navegadores (aba anônima, cookies bloqueados) só acessar o
+// localStorage já lança erro; nesse caso o carrinho fica só em memória.
+function defaultStorage() {
+  try {
+    return globalThis.localStorage ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function createCart(storage = defaultStorage()) {
   let items = load();
   const listeners = new Set();
 
