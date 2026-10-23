@@ -1,0 +1,80 @@
+body.adm { background: #f4efe9; }
+.adm-center { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 16px; }
+.adm-login {
+  width: 100%; max-width: 380px;
+  background: #fff; border-radius: 20px; padding: 28px 22px;
+  box-shadow: var(--shadow-lg);
+  display: grid; gap: 4px;
+}
+.adm-login h1 { font: 800 24px/1.2 var(--font-display); margin: 10px 0 8px; }
+.adm-login .logo { width: 56px; height: 56px; background: var(--brand-soft); border: 0; }
+.adm-login .btn { margin-top: 14px; }
+
+.adm-top {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 16px; background: var(--ink); color: #fff;
+}
+.adm-top strong { font: 800 20px/1 var(--font-display); }
+.adm-top-actions { display: flex; gap: 16px; }
+.link-btn.light { color: #ffd98a; }
+.adm-tabs {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; gap: 4px; overflow-x: auto;
+  padding: 8px 12px; background: #fff; border-bottom: 1px solid var(--line);
+  scrollbar-width: thin;
+}
+.adm-tab {
+  flex: none; padding: 8px 14px; border-radius: 999px;
+  text-decoration: none; color: var(--ink-2); font-weight: 600; font-size: 14px;
+}
+.adm-tab[aria-current='page'] { background: var(--brand); color: #fff; }
+.adm-main { max-width: 1100px; margin: 0 auto; padding: 16px 12px 80px; }
+.adm-stack { display: grid; gap: 16px; }
+.adm-card { background: #fff; border-radius: 16px; padding: 16px; box-shadow: var(--shadow); margin-bottom: 16px; }
+.adm-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+.adm-card-head h2 { margin: 0; font: 800 21px/1.2 var(--font-display); }
+.adm-card-head .btn { flex: none; padding: 9px 14px; }
+.adm-help { font-size: 13px; color: var(--ink-2); margin: 4px 0 0; display: block; }
+.adm-empty { color: var(--ink-3); font-style: italic; }
+.adm-table-wrap { overflow-x: auto; }
+.adm-table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+.adm-table th, .adm-table td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.adm-table th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-3); }
+.adm-table tr.off td, .adm-table tr.off th { color: var(--ink-3); }
+.adm-actions { white-space: nowrap; text-align: right; }
+.adm-actions > * { margin-left: 8px; vertical-align: middle; }
+.icon-btn.sm { width: 30px; height: 30px; font-size: 15px; display: inline-grid; }
+.icon-btn:disabled { opacity: .35; cursor: not-allowed; }
+.switch { width: 20px; height: 20px; accent-color: var(--basil); }
+.adm-form { display: grid; gap: 4px; }
+.adm-form.grid-2 { gap: 4px 20px; }
+@media (min-width: 760px) { .adm-form.grid-2 { grid-template-columns: 1fr 1fr; } }
+.adm-field .field-label { margin-top: 12px; }
+.adm-req { color: var(--brand); }
+.adm-check { display: flex; gap: 10px; align-items: center; margin-top: 14px; font-weight: 600; flex-wrap: wrap; }
+.adm-check small { flex-basis: 100%; font-weight: 400; color: var(--ink-2); font-size: 13px; }
+.adm-check input { width: 20px; height: 20px; accent-color: var(--brand); }
+.adm-check.inline { margin: 0; font-weight: 500; }
+.adm-multi { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 8px 0; }
+.adm-upload { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 8px; }
+.adm-upload .btn { padding: 8px 12px; font-size: 14px; }
+.adm-preview { width: 96px; height: 96px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
+.adm-dialog { max-width: 640px; }
+.matrix td { min-width: 110px; }
+.matrix .input.sm { padding: 7px 8px; font-size: 15px; width: 100%; min-width: 80px; }
+.matrix .input.promo { margin-top: 4px; font-size: 13px; background: #fffaf0; }
+.matrix .input[aria-invalid='true'] { border-color: var(--brand); }
+.btn-danger { background: #a3241b; }
+.toast-error { background: #8f2412; }
+
+/* tabela vira cartões no celular */
+@media (max-width: 640px) {
+  .adm-table:not(.matrix) thead { display: none; }
+  .adm-table:not(.matrix) tr { display: grid; grid-template-columns: 1fr auto; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .adm-table:not(.matrix) td { border: 0; padding: 2px 4px; }
+  .adm-table:not(.matrix) td[data-label]::before { content: attr(data-label) ': '; color: var(--ink-3); font-size: 12px; }
+  .adm-table:not(.matrix) td:first-child { grid-column: 1 / -1; }
+  .adm-table:not(.matrix) td:first-child::before { content: none; }
+  .adm-actions { grid-column: 1 / -1; text-align: left; padding-top: 6px !important; }
+  .adm-actions > * { margin: 0 10px 0 0; }
+}
