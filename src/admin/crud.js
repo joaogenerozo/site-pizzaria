@@ -144,6 +144,7 @@ export function crudView(cfg) {
       const { data, error } = await q;
       if (error) { btn.disabled = false; errorBox.hidden = false; errorBox.textContent = friendlyDbError(error); return; }
       // sincroniza ligações (apaga as removidas, insere as novas)
+      let linkError = null;
       for (const link of cfg.links ?? []) {
         const want = new Set(v[link.key]);
         const had = new Set(values[link.key]);
@@ -151,15 +152,17 @@ export function crudView(cfg) {
         const toAdd = [...want].filter((x) => !had.has(x));
         if (toDel.length) {
           const { error: e } = await supabase.from(link.table).delete().eq(link.fk, data.id).in(link.other, toDel);
-          if (e) { notify(friendlyDbError(e), 'error'); }
+          if (e) linkError ??= e;
         }
         if (toAdd.length) {
           const { error: e } = await supabase.from(link.table).insert(toAdd.map((x) => ({ [link.fk]: data.id, [link.other]: x })));
-          if (e) { notify(friendlyDbError(e), 'error'); }
+          if (e) linkError ??= e;
         }
       }
       dialog.close();
-      notify('Salvo.');
+      // Erro nas ligações não pode ser escondido pelo "Salvo." (ex.: pizza sem tamanho some do cardápio)
+      if (linkError) notify(`O cadastro foi salvo, mas as opções marcadas (tamanhos, sabores ou adicionais) não foram gravadas. Abra e salve de novo. ${friendlyDbError(linkError)}`, 'error');
+      else notify('Salvo.');
       await load(); cfg.onChange?.();
     }
 

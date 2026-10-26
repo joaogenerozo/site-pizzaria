@@ -22,7 +22,7 @@ Marque cada item **no site publicado**, num celular e num computador.
 - [ ] Fotos próprias (ou com direito de uso). Nada copiado do site de referência.
 
 ## Publicação
-- [ ] `npm run build` com `.env.production.local` do projeto real.
+- [ ] `npm run build` com `.env.production.local` do projeto real (incluindo `VITE_SITE_URL` com o domínio final).
 - [ ] Conteúdo de `dist/` (com `.htaccess`) em `public_html`.
 - [ ] Domínio apontando para a Hostinger.
 - [ ] SSL ativo; `http://` redireciona para `https://`.
@@ -38,7 +38,9 @@ Marque cada item **no site publicado**, num celular e num computador.
 - [ ] Login de administrador funciona; conta não administradora vê "Sem permissão".
 - [ ] Alterar um preço no painel e ver a mudança no cardápio.
 - [ ] Enviar uma foto pelo painel e vê-la no cardápio.
-- [ ] Pausar pedidos ("Aceitando pedidos agora") bloqueia a revisão do pedido.
+- [ ] Pausar pedidos ("Aceitando pedidos agora") mostra o aviso no carrinho e bloqueia o "Continuar".
+- [ ] Link do site enviado num grupo de WhatsApp mostra "Domingo's Pizzas" e a imagem de prévia.
+- [ ] Pedido de teste feito pelo navegador do Instagram (link na bio) abre o WhatsApp.
 - [ ] Console do navegador (F12) sem erros.
 - [ ] Teste em iPhone (Safari) e Android (Chrome).
 

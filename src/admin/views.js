@@ -328,6 +328,7 @@ export async function settingsView() {
 
   async function save() {
     const payload = {}; let ok = true;
+    status.textContent = ''; // não deixa a mensagem de um erro anterior presa
     for (const [f, c] of controls) {
       const r = parseField(f, c.getValue());
       if (r.error) { ok = false; c.setError?.(r.error); } else { c.setError?.(''); payload[f.key] = r.value ?? null; }

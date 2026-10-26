@@ -12,6 +12,17 @@ import {
 import { openProductModal } from './productModal.js';
 
 const CUSTOMER_KEY = 'cardapio-cliente-v1';
+const PAUSED_TEXT = 'A pizzaria não está recebendo pedidos agora. Seu carrinho fica guardado: volte mais tarde para enviar.';
+
+// Erros técnicos (rede, formato) não devem aparecer crus para o cliente.
+// As mensagens do cálculo do pedido no banco já são em português e seguem como estão.
+function friendlyOrderError(err) {
+  const msg = String(err?.message || '');
+  if (!msg || /fetch|network|invalid input|syntax|uuid|json|schema|function/i.test(msg)) {
+    return 'Não foi possível calcular o pedido. Verifique a internet, atualize a página e tente novamente.';
+  }
+  return msg;
+}
 
 // Dados do cliente ficam só neste aparelho, para não precisar digitar de novo.
 function loadCustomer() {
@@ -43,6 +54,8 @@ export function openCartDrawer({ catalog, cart }) {
   if (form.mode === 'delivery' && !s.delivery_enabled) form.mode = 'pickup';
   if (form.mode === 'pickup' && !s.pickup_enabled) form.mode = 'delivery';
 
+  // Pedidos pausados no painel: o banco recusaria o cálculo, então avisamos antes do formulário
+  const paused = !s.accepting_orders;
   let step = 'cart'; // cart -> details -> review -> sent
   let quote = null;  // resposta de calculate_order
   let busy = false;
@@ -112,10 +125,11 @@ export function openCartDrawer({ catalog, cart }) {
     });
     body.append(list,
       h('div', { class: 'totals' }, row('Subtotal estimado', formatCents(estimate))),
-      h('p', { class: 'hint' }, 'Descontos, taxa de entrega e total são confirmados na revisão do pedido.'));
+      h('p', { class: 'hint' }, 'Descontos, taxa de entrega e total são confirmados na revisão do pedido.'),
+      paused ? h('p', { class: 'notice warn', role: 'alert' }, PAUSED_TEXT) : null);
     foot.append(
       h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => dialog.close() }, 'Adicionar mais'),
-      h('button', { class: 'btn', type: 'button', id: 'go-details', onclick: () => { step = 'details'; render(); } }, 'Continuar'));
+      h('button', { class: 'btn', type: 'button', id: 'go-details', disabled: paused, onclick: () => { step = 'details'; render(); } }, 'Continuar'));
   }
 
   function editItem(index) {
@@ -244,7 +258,7 @@ export function openCartDrawer({ catalog, cart }) {
         step = 'details';
       } else step = 'review';
     } catch (err) {
-      serverError = err.message || 'Não foi possível calcular o pedido. Tente novamente.';
+      serverError = friendlyOrderError(err);
       step = 'details';
     } finally {
       busy = false;
@@ -306,14 +320,16 @@ export function openCartDrawer({ catalog, cart }) {
         ? 'Modo demonstração: o WhatsApp da pizzaria ainda não foi cadastrado, então o envio está desativado.'
         : 'O WhatsApp da pizzaria ainda não foi configurado. Tente mais tarde.') : null);
 
-    foot.append(h('button', {
-      class: 'btn btn-whatsapp', type: 'button', id: 'send-whatsapp', disabled: !canSend,
-      onclick: () => {
-        const url = whatsappLink(s.whatsapp_number, buildOrderMessage(order));
-        window.open(url, '_blank', 'noopener');
-        step = 'sent'; render();
-      },
-    }, 'Enviar pedido pelo WhatsApp'));
+    // Link <a> de verdade em vez de window.open: bloqueadores de pop-up e os navegadores
+    // internos do Instagram/Facebook costumam aceitar melhor um toque num link.
+    foot.append(canSend
+      ? whatsappAnchor(whatsappLink(s.whatsapp_number, buildOrderMessage(order)), 'send-whatsapp', 'Enviar pedido pelo WhatsApp',
+        () => setTimeout(() => { step = 'sent'; render(); }, 0))
+      : h('button', { class: 'btn btn-whatsapp', type: 'button', id: 'send-whatsapp', disabled: true }, 'Enviar pedido pelo WhatsApp'));
+  }
+
+  function whatsappAnchor(url, id, label, onclick) {
+    return h('a', { class: 'btn btn-whatsapp', id, href: url, target: '_blank', rel: 'noopener noreferrer', onclick }, label);
   }
 
   // ------------------------------------------------------------ 4. depois de abrir o WhatsApp
@@ -322,7 +338,8 @@ export function openCartDrawer({ catalog, cart }) {
     body.append(h('div', { class: 'state' }, icon('phone'),
       h('h2', {}, 'Confira o WhatsApp'),
       h('p', {}, 'Abrimos o WhatsApp com a mensagem do seu pedido. Toque em enviar por lá e aguarde a confirmação da pizzaria.'),
-      h('p', { class: 'hint' }, 'Se o WhatsApp não abriu, volte e toque no botão de novo.')));
+      h('p', { class: 'hint' }, 'Se o WhatsApp não abriu, toque no link abaixo.'),
+      whatsappAnchor(whatsappLink(s.whatsapp_number, buildOrderMessage(buildOrder())), 'resend-whatsapp', 'Abrir o WhatsApp de novo')));
     foot.append(
       h('button', { class: 'btn btn-ghost', type: 'button', onclick: back }, 'Voltar'),
       h('button', { class: 'btn', type: 'button', onclick: () => { cart.clear(); dialog.close(); } }, 'Já enviei, limpar carrinho'));

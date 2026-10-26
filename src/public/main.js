@@ -101,6 +101,9 @@ function renderHero() {
 
 const range = (a, b) => (b != null && b !== a ? `${a}–${b} min` : `${a} min`);
 
+// Taxa vazia (null) = "a combinar"; só 0,00 é entrega grátis.
+const zoneFeeLabel = (fee) => (fee === null || fee === undefined ? 'A combinar' : Number(fee) > 0 ? formatPrice(fee) : 'Grátis');
+
 function renderToolbar() {
   const input = h('input', {
     type: 'search', id: 'search', placeholder: 'Buscar no cardápio', autocomplete: 'off', 'aria-label': 'Buscar produtos',
@@ -250,7 +253,7 @@ function openInfo() {
           Number(s.min_order_value) > 0 ? h('p', {}, `Pedido mínimo: ${formatPrice(s.min_order_value)}`) : null),
         s.delivery_enabled && catalog.zones.length ? h('div', {}, h('h3', {}, 'Taxas de entrega'),
           h('table', { class: 'hours-table' }, h('tbody', {}, catalog.zones.map((z) =>
-            h('tr', {}, h('td', {}, z.name), h('td', {}, Number(z.fee) > 0 ? formatPrice(z.fee) : 'Grátis')))))) : null,
+            h('tr', {}, h('td', {}, z.name), h('td', {}, zoneFeeLabel(z.fee))))))) : null,
         catalog.payments.length ? h('div', {}, h('h3', {}, 'Formas de pagamento'),
           h('div', { class: 'chips' }, catalog.payments.map((p) => h('span', { class: 'chip' }, p.name)))) : null)));
   dialog.addEventListener('close', () => dialog.remove());
@@ -260,6 +263,12 @@ function openInfo() {
 }
 
 // ---------------------------------------------------------------- rodapé
+// Telefone brasileiro com DDD (10 ou 11 dígitos) vira link de ligação
+const telHref = (display) => {
+  const d = String(display).replace(/\D/g, '');
+  return /^\d{10,11}$/.test(d) ? `tel:+55${d}` : null;
+};
+
 function renderFooter() {
   const s = catalog.settings;
   const year = new Date().getFullYear();
@@ -268,14 +277,14 @@ function renderFooter() {
       s.address_line ? h('p', {}, s.address_line) : null,
       s.maps_url ? h('p', {}, h('a', { href: s.maps_url, target: '_blank', rel: 'noopener noreferrer' }, 'Como chegar')) : null),
     h('div', {}, h('h3', {}, 'Contato'),
-      s.phone_display ? h('p', {}, s.phone_display) : null,
+      s.phone_display ? h('p', {}, telHref(s.phone_display) ? h('a', { href: telHref(s.phone_display) }, s.phone_display) : s.phone_display) : null,
       s.whatsapp_number ? h('p', {}, h('a', { href: `https://wa.me/${s.whatsapp_number}`, target: '_blank', rel: 'noopener noreferrer' }, 'WhatsApp')) : null,
       s.instagram_url ? h('p', {}, h('a', { href: s.instagram_url, target: '_blank', rel: 'noopener noreferrer' }, 'Instagram')) : null,
       !s.phone_display && !s.whatsapp_number && !s.instagram_url ? h('p', {}, 'Contatos ainda não informados.') : null),
     h('div', {}, h('h3', {}, 'Horários'),
       hoursByDay(catalog.hours).filter((d) => d.slots.length).map((d) => h('p', {}, `${d.name}: ${d.slots.join(', ')}`)),
       !catalog.hours.length ? h('p', {}, 'Ainda não informados.') : null),
-    h('p', { class: 'fine' }, `© ${year} ${s.name}. Os pedidos são enviados pelo WhatsApp e só são confirmados após a resposta da pizzaria.`)));
+    h('p', { class: 'fine' }, `© ${year} ${s.name}. Os pedidos são enviados pelo WhatsApp e só são confirmados após a resposta da pizzaria. Seu nome, telefone e endereço ficam salvos só neste aparelho, para agilizar o próximo pedido, e vão para a pizzaria apenas na mensagem que você envia.`)));
 }
 
 // ---------------------------------------------------------------- carrinho (barra)

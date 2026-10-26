@@ -28,6 +28,10 @@ DirectoryIndex index.html
   <FilesMatch "\.(js|css|svg|png|jpg|webp|woff2)$">
     Header set Cache-Control "public, max-age=31536000, immutable"
   </FilesMatch>
+  # Arquivos sem hash no nome: cache curto, para uma troca aparecer em até 1 dia
+  <FilesMatch "^(favicon\.svg|og-image\.png)$">
+    Header set Cache-Control "public, max-age=86400"
+  </FilesMatch>
 </IfModule>
 
 # Nunca servir arquivos de configuração caso sejam enviados por engano

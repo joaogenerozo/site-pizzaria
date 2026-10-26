@@ -87,6 +87,8 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
 
   const singleFlavor = product.kind === 'pizza' && product.flavors.length === 1;
   const singleReview = singleFlavor && product.flavors[0].price_review;
+  // Preço em confirmação: não dá para pedir, e o botão já diz o motivo (em vez de "Escolha o tamanho")
+  const blocked = (product.kind === 'simple' && product.price_review) || singleReview;
 
   const currentSize = () => product.sizes.find((s) => s.id === sel.sizeId) || null;
 
@@ -223,10 +225,17 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
       el.classList.toggle('done', done);
       el.textContent = done ? 'OK' : 'Obrigatório';
     });
+    if (blocked) {
+      confirmBtn.firstChild.textContent = 'Preço em confirmação';
+      totalOut.textContent = '';
+      confirmBtn.setAttribute('aria-disabled', 'true');
+      confirmBtn.classList.add('is-invalid');
+    }
     return result;
   }
 
   function confirm() {
+    if (blocked) return;
     const result = update();
     if (!result.ok) {
       showErrors = true;

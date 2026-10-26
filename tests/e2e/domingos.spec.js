@@ -27,6 +27,18 @@ test('cardápio real: 11 categorias, 51 sabores e preços por tamanho', async ({
   }
 });
 
+test('taxa a combinar não aparece como grátis e sabor em confirmação explica no botão', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('.info-btn').click();
+  await expect(page.locator('dialog tr', { hasText: 'Entrega (taxa a combinar)' })).toContainText('A combinar');
+  await expect(page.locator('dialog')).not.toContainText('Grátis');
+  await page.keyboard.press('Escape');
+  await card(page, 'Lombo').click();
+  await expect(page.locator('.sheet-foot .btn')).toHaveText('Preço em confirmação');
+  await page.locator('.sheet-foot .btn').click({ force: true });
+  await expect(page.locator('.errors li')).toHaveCount(0);
+});
+
 test('15. admin confirma o preço do Lombo e o cardápio passa a aceitar o pedido', async ({ page }) => {
   await page.goto('/admin/');
   await page.fill('#login-email', 'admin@teste.local');

@@ -113,7 +113,7 @@ alterado pelo painel.
 | — | Todos os 153 preços no banco iguais ao arquivo de dados | OK, 0 divergências |
 | — | Sabor em confirmação, meio a meio e taxa a combinar recusados/tratados pelo banco | OK |
 
-Totais: 82 testes no banco, 25 de unidade e 44 no navegador (celular e
+Totais: 82 testes no banco, 25 de unidade e 46 no navegador (celular e
 desktop), todos passando.
 
 **Ainda não testado:** projeto Supabase real, publicação na Hostinger e envio

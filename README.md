@@ -110,7 +110,7 @@ Também há um ambiente 100% local que imita o Supabase (PostgreSQL + PostgREST
 ```bash
 bash supabase/tests/run.sh                       # 82 testes de RLS e preço no banco
 LOCAL_ANON_KEY=$(node dev/make-jwt.mjs anon) \
-  npx playwright test                            # 44 testes no navegador (celular e desktop)
+  npx playwright test                            # 46 testes no navegador (celular e desktop)
 SEED=domingos bash dev/reset-db.sh               # abre o site local com o cardápio real
 ```
 
@@ -121,7 +121,13 @@ SEED=domingos bash dev/reset-db.sh               # abre o site local com o card�
    ```
    VITE_SUPABASE_URL=https://SEU-PROJETO.supabase.co
    VITE_SUPABASE_ANON_KEY=sb_publishable_xxx
+   VITE_SITE_URL=https://www.suapizzaria.com.br
    ```
+
+   `VITE_SITE_URL` é o endereço final do site. Ele é opcional, mas sem ele o
+   link compartilhado no WhatsApp/Instagram sai sem a imagem de prévia
+   (`og-image.png`). Se a URL ou a chave do Supabase faltarem, o build **para
+   com um erro** em vez de gerar um site que não carrega.
 
 2. Rode `npm run build`. O resultado fica na pasta **`dist/`**:
 
@@ -131,6 +137,7 @@ SEED=domingos bash dev/reset-db.sh               # abre o site local com o card�
    ├── admin/index.html  painel
    ├── assets/           JS e CSS com hash no nome
    ├── favicon.svg
+   ├── og-image.png      imagem da prévia do link
    └── .htaccess         HTTPS, cabeçalhos de segurança e cache
    ```
 
