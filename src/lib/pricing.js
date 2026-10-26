@@ -22,6 +22,7 @@ export function priceItem(catalog, selection) {
   for (const id of extraIds) {
     const extra = product.extras.find((e) => e.id === id);
     if (!extra) errors.push('Adicional indisponível.');
+    else if (extra.price_review) errors.push(`O preço de ${extra.name} ainda está em confirmação.`);
     else extrasCents += extra.priceCents;
   }
 
@@ -29,7 +30,8 @@ export function priceItem(catalog, selection) {
   let crustCents = 0;
 
   if (product.kind === 'simple') {
-    baseCents = product.promoCents ?? product.priceCents;
+    if (product.price_review) errors.push(`O preço de ${product.name} ainda está em confirmação.`);
+    baseCents = product.promoCents ?? product.priceCents ?? 0;
   } else {
     const size = product.sizes.find((s) => s.id === selection.sizeId);
     const flavorIds = selection.flavorIds || [];
@@ -50,6 +52,7 @@ export function priceItem(catalog, selection) {
         const allowed = product.flavors.some((f) => f.id === fid);
         const fp = allowed ? catalog.flavorPrice(fid, size.id) : null;
         if (!fp) errors.push('Sabor indisponível neste tamanho.');
+        else if (catalog.flavors.get(fid)?.price_review) errors.push(`O preço do sabor ${catalog.flavors.get(fid).name} ainda está em confirmação.`);
         else prices.push(fp.effectiveCents);
       }
       if (prices.length) {
@@ -61,6 +64,7 @@ export function priceItem(catalog, selection) {
       if (selection.crustId) {
         const cp = catalog.crustPrice(selection.crustId, size.id);
         if (cp === null || !catalog.crusts.has(selection.crustId)) errors.push('Borda indisponível neste tamanho.');
+        else if (catalog.crusts.get(selection.crustId).price_review) errors.push('O preço desta borda ainda está em confirmação.');
         else crustCents = cp;
       }
     }

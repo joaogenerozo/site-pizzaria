@@ -1,0 +1,119 @@
+{
+  "fonte": "CARDÁPIO DE ENTREGA - 08-09-26 (PDF enviado por João Paulo em 26/10/2026)",
+  "estabelecimento": {
+    "nome": "Domingo's Pizzas",
+    "slogan": "O sabor que reúne quem você ama!",
+    "desde": 2013,
+    "endereco": "Avenida Mario Lanzani, 261 - Vila Maganhoto",
+    "whatsapp_principal": "5535910243144",
+    "telefone_exibido": "(35) 91024-3144",
+    "telefones": ["(35) 99805-8784", "(35) 91024-3144 (principal)", "(35) 99836-0162"],
+    "horarios": { "dias": "quarta-feira a segunda-feira", "abre": "18:00", "fecha": "22:00", "fechado": "terça-feira" },
+    "observacao": "Todas as pizzas acompanham molho de tomate, orégano e azeitona."
+  },
+  "tamanhos": [
+    { "sigla": "P", "pedacos": 4 },
+    { "sigla": "M", "pedacos": 6 },
+    { "sigla": "G", "pedacos": 8 }
+  ],
+  "categorias": [
+    { "nome": "Pizzas de frango", "pizzas": [
+      { "nome": "Frango com Catupiry", "ingredientes": "Frango desfiado e catupiry", "precos": { "P": 50.90, "M": 55.00, "G": 57.00 } },
+      { "nome": "Frango Cheddar", "ingredientes": "Frango desfiado e cheddar", "precos": { "P": 50.00, "M": 58.00, "G": 68.00 } },
+      { "nome": "Frango 3", "ingredientes": "Frango desfiado com requeijão cremoso e tiras de bacon", "precos": { "P": 52.00, "M": 55.00, "G": 59.90 } },
+      { "nome": "Frango 4", "ingredientes": "Frango desfiado, milho, tiras de bacon e requeijão cremoso", "precos": { "P": 52.00, "M": 55.00, "G": 59.90 } },
+      { "nome": "Frango Barbecue", "ingredientes": "Frango desfiado com molho barbecue e tiras de bacon, mussarela e cheddar", "precos": { "P": 55.00, "M": 65.00, "G": 65.00 },
+        "revisar": "Preço M igual ao G (R$ 65,00)." },
+      { "nome": "Strogonoff de Frango", "ingredientes": "Mussarela, requeijão cremoso, strogonoff de frango e batata palha", "precos": { "P": 50.00, "M": 55.00, "G": 65.00 } }
+    ]},
+    { "nome": "Pizzas de brócolis", "pizzas": [
+      { "nome": "Brócolis", "ingredientes": "Mussarela e brócolis com alho frito", "precos": { "P": 40.00, "M": 45.00, "G": 55.90 } },
+      { "nome": "Brócolis Especial", "ingredientes": "Mussarela, brócolis com alho frito, requeijão e bacon", "precos": { "P": 45.00, "M": 55.00, "G": 65.00 } },
+      { "nome": "Brócolis 1", "ingredientes": "Mussarela, brócolis com alho frito e requeijão", "precos": { "P": 40.00, "M": 50.00, "G": 60.00 } },
+      { "nome": "Brócolis 2", "ingredientes": "Mussarela, brócolis com alho frito e cheddar", "precos": { "P": 43.00, "M": 53.00, "G": 63.00 } },
+      { "nome": "Brócolis 3", "ingredientes": "Mussarela, brócolis com alho frito, cheddar e bacon", "precos": { "P": 43.00, "M": 53.00, "G": 63.00 } }
+    ]},
+    { "nome": "Pizzas de calabresa", "pizzas": [
+      { "nome": "Calabresa", "ingredientes": "Calabresa acebolada ao azeite e azeitonas", "precos": { "P": 37.00, "M": 45.00, "G": 55.00 } },
+      { "nome": "Calabresa da Casa", "ingredientes": "Mussarela, calabresa acebolada ao azeite e azeitonas", "precos": { "P": 40.00, "M": 50.00, "G": 60.00 } },
+      { "nome": "Americana", "ingredientes": "Mussarela, calabresa, cheddar, tiras de bacon e geleia de pimenta", "precos": { "P": 55.00, "M": 65.00, "G": 70.00 } },
+      { "nome": "Baiana", "ingredientes": "Mussarela, calabresa, cebola, azeite, ovos e pimenta calabresa", "precos": { "P": 55.00, "M": 65.00, "G": 70.00 } }
+    ]},
+    { "nome": "Pizzas de milho, bacon e palmito", "pizzas": [
+      { "nome": "Milho", "ingredientes": "Mussarela e milho", "precos": { "P": 40.00, "M": 45.00, "G": 55.90 } },
+      { "nome": "Milho Bacon", "ingredientes": "Mussarela, milho e bacon", "precos": { "P": 45.00, "M": 55.00, "G": 63.00 } },
+      { "nome": "Milho Especial", "ingredientes": "Mussarela, milho, bacon e requeijão", "precos": { "P": 50.00, "M": 50.00, "G": 65.00 },
+        "revisar": "Preço P igual ao M (R$ 50,00)." },
+      { "nome": "Bacon", "ingredientes": "Mussarela e bacon", "precos": { "P": 40.00, "M": 45.00, "G": 55.90 } },
+      { "nome": "Bacon e Palmito", "ingredientes": "Mussarela, bacon e palmito", "precos": { "P": 40.00, "M": 50.00, "G": 60.00 } },
+      { "nome": "Siciliana", "ingredientes": "Mussarela, champignon e bacon", "precos": { "P": 50.00, "M": 55.00, "G": 59.00 } }
+    ]},
+    { "nome": "Pizzas de presunto", "pizzas": [
+      { "nome": "Bauru", "ingredientes": "Presunto, mussarela e tomate", "precos": { "P": 40.00, "M": 45.00, "G": 55.00 } },
+      { "nome": "Portuguesa", "ingredientes": "Presunto, cebola, ovos e mussarela", "precos": { "P": 40.00, "M": 45.00, "G": 55.90 } },
+      { "nome": "Portugal", "ingredientes": "Presunto, cebola, ovo, requeijão e mussarela", "precos": { "P": 45.00, "M": 55.00, "G": 60.00 } },
+      { "nome": "Presunto", "ingredientes": "Presunto e mussarela", "precos": { "P": 40.00, "M": 45.00, "G": 55.90 } },
+      { "nome": "Presunto 1", "ingredientes": "Presunto e requeijão", "precos": { "P": 40.00, "M": 45.00, "G": 55.90 } },
+      { "nome": "Júlia", "ingredientes": "Presunto, cebola, palmito picado, tomate e mussarela", "precos": { "P": 50.00, "M": 55.00, "G": 65.90 } }
+    ]},
+    { "nome": "Pizzas de queijo", "pizzas": [
+      { "nome": "Mussarela", "ingredientes": "Mussarela", "precos": { "P": 40.00, "M": 55.00, "G": 55.90 },
+        "revisar": "Preço M (R$ 55,00) quase igual ao G (R$ 55,90); outras pizzas de R$ 55,90 no G custam R$ 45,00 no M." },
+      { "nome": "3 Queijos", "ingredientes": "Mussarela, requeijão e parmesão", "precos": { "P": 40.00, "M": 50.00, "G": 60.00 } },
+      { "nome": "4 Queijos", "ingredientes": "Mussarela, requeijão, parmesão e provolone", "precos": { "P": 45.00, "M": 55.00, "G": 65.00 } },
+      { "nome": "5 Queijos", "ingredientes": "Mussarela, requeijão, parmesão, provolone e gorgonzola", "precos": { "P": 50.00, "M": 60.00, "G": 70.00 } },
+      { "nome": "Catupiry", "ingredientes": "Mussarela e requeijão", "precos": { "P": 40.00, "M": 50.00, "G": 55.90 } },
+      { "nome": "Catupiry com Bacon", "ingredientes": "Mussarela, requeijão e bacon", "precos": { "P": 45.00, "M": 55.00, "G": 59.90 } }
+    ]},
+    { "nome": "Pizzas de lombo", "pizzas": [
+      { "nome": "Lombo", "ingredientes": "Mussarela, lombo defumado e cebola", "precos": { "P": 50.00, "M": 45.00, "G": 55.90 },
+        "revisar": "Preço P (R$ 50,00) maior que o M (R$ 45,00)." },
+      { "nome": "Lombo Especial", "ingredientes": "Lombo, mussarela, champignon e bacon", "precos": { "P": 45.00, "M": 55.00, "G": 65.00 } },
+      { "nome": "Lombo Cheddar", "ingredientes": "Mussarela, lombo defumado e cheddar", "precos": { "P": 40.00, "M": 50.00, "G": 60.00 } },
+      { "nome": "Lombo Requeijão", "ingredientes": "Lombo defumado, requeijão e mussarela", "precos": { "P": 40.00, "M": 50.00, "G": 55.00 } },
+      { "nome": "Polly", "ingredientes": "Lombo defumado, mussarela, cheddar e bacon", "precos": { "P": 45.00, "M": 55.00, "G": 65.00 } }
+    ]},
+    { "nome": "Pizzas de atum", "pizzas": [
+      { "nome": "Atum", "ingredientes": "Mussarela, atum e cebola", "precos": { "P": 45.00, "M": 55.00, "G": 65.00 } },
+      { "nome": "Atum Especial", "ingredientes": "Mussarela, atum, cebola e tomate", "precos": { "P": 47.00, "M": 57.00, "G": 67.00 } }
+    ]},
+    { "nome": "Pizzas de carne", "pizzas": [
+      { "nome": "Strogonoff de Boi", "ingredientes": "Mussarela, strogonoff de boi com champignon e batata palha", "precos": { "P": 50.00, "M": 60.00, "G": 70.00 } },
+      { "nome": "Churrasco", "ingredientes": "Mussarela com fraldinha flambada no alho e azeite e cebolas", "precos": { "P": 50.00, "M": 60.00, "G": 70.00 } }
+    ]},
+    { "nome": "Pizzas de peito de peru", "pizzas": [
+      { "nome": "Peru", "ingredientes": "Mussarela, peito de peru e requeijão", "precos": { "P": 40.00, "M": 50.00, "G": 60.00 } },
+      { "nome": "Califa", "ingredientes": "Mussarela, peito de peru, cheddar, abacaxi e bacon", "precos": { "P": 50.00, "M": 60.00, "G": 70.00 } },
+      { "nome": "Peru Especial", "ingredientes": "Mussarela, peito de peru, requeijão e geléia de pimenta", "precos": { "P": 45.00, "M": 55.00, "G": 65.00 } }
+    ]},
+    { "nome": "Pizzas doces", "pizzas": [
+      { "nome": "Uva Branca", "ingredientes": "Chocolate branco, uvas verdes, brownie, cacau em pó e amendoim", "precos": { "P": 50.00, "M": 60.00, "G": 70.00 } },
+      { "nome": "Doce Delírio", "ingredientes": "Chocolate branco, chocolate preto, uvas verdes, morango e sonho de valsa branco", "precos": { "P": 50.00, "M": 60.00, "G": 70.00 } },
+      { "nome": "Moça", "ingredientes": "Creme de leite moça com leite em pó, morangos e raspas de lima", "precos": { "P": 50.00, "M": 60.00, "G": 70.00 } },
+      { "nome": "Banana Nevada", "ingredientes": "Bananas fatiadas com chocolate branco", "precos": { "P": 45.00, "M": 55.00, "G": 63.00 } },
+      { "nome": "Banana Tradicional", "ingredientes": "Bananas fatiadas com mussarela, caneça e açúcar", "precos": { "P": 45.00, "M": 55.00, "G": 65.00 },
+        "conferir_texto": "\"caneça\" está assim no cardápio; provavelmente é \"canela\". Mantido como está até confirmação." },
+      { "nome": "Romeu e Julieta", "ingredientes": "Mussarela com goiaba", "precos": { "P": 45.00, "M": 55.00, "G": 65.00 } }
+    ]}
+  ],
+  "bordas": [
+    { "nome": "Borda de requeijão", "preco": 15.00 },
+    { "nome": "Borda de cheddar", "preco": 18.00 },
+    { "nome": "Borda mista", "preco": 20.00 }
+  ],
+  "adicionais": [
+    { "nome": "Mussarela", "preco": 20.00 },
+    { "nome": "Bacon", "preco": 10.00 },
+    { "nome": "Milho", "preco": 5.00 },
+    { "nome": "Palmito", "preco": 8.00 },
+    { "nome": "Cebola", "preco": 5.00 },
+    { "nome": "Tomate", "preco": 5.00 }
+  ],
+  "pendencias": [
+    "O cardápio impresso não diz se as bordas têm o mesmo preço em P, M e G; o site usa o mesmo valor nos três tamanhos.",
+    "O cardápio não diz se é possível pedir pizza meio a meio; o site aceita 1 sabor por pizza até isso ser confirmado.",
+    "Taxas de entrega por bairro não constam no cardápio; o site mostra \"taxa a combinar\".",
+    "Formas de pagamento não constam no cardápio; o site mostra \"a combinar pelo WhatsApp\".",
+    "\"Todos os dias duas pizzas na promoção\": o cardápio não diz quais; nenhuma promoção foi cadastrada."
+  ]
+}

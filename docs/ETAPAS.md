@@ -52,3 +52,8 @@
 - Enviar um pedido real para o WhatsApp da pizzaria.
 - Cadastrar os dados reais e desligar o modo demonstração.
 **Por isso o projeto ainda não está pronto para produção.**
+
+## Cardápio real — Domingo's Pizzas (26/10/2026)
+- Fonte: PDF "CARDÁPIO DE ENTREGA - 08-09-26" transcrito para `data/cardapio_domingos_pizzas.json` (51 sabores, 3 bordas, 6 adicionais).
+- `supabase/seed_domingos.sql` gerado por `scripts/gerar-seed-domingos.mjs`; novo campo "preço em confirmação" e taxa de entrega "a combinar" (`supabase/migrations/001_preco_em_confirmacao.sql`).
+- Detalhes, pendências e testes: [CARDAPIO-DOMINGOS.md](CARDAPIO-DOMINGOS.md).

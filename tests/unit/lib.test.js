@@ -145,6 +145,19 @@ describe('preço no navegador', () => {
   it('produto simples usa promoção', () => {
     expect(priceItem(buildCatalog(raw), { productId: id(5), quantity: 3 }).lineCents).toBe(8970);
   });
+  it('preço em confirmação bloqueia o pedido e sai do "a partir de"', () => {
+    const flagged = (key, n) => raw[key].map((r) => (r.id === id(n) ? { ...r, price_review: true } : r));
+    const c1 = buildCatalog({ ...raw, flavors: flagged('flavors', 12) });
+    const r = priceItem(c1, sel({ flavorIds: [id(12)] }));
+    expect(r.ok).toBe(false);
+    expect(r.errors.join(' ')).toContain('em confirmação');
+    expect(c1.products.get(id(1)).fromCents).toBe(5000); // C (45,00) fica de fora
+    expect(priceItem(buildCatalog({ ...raw, crusts: flagged('crusts', 30) }), sel({ crustId: id(30) })).ok).toBe(false);
+    expect(priceItem(buildCatalog({ ...raw, extras: flagged('extras', 20) }), sel({ extraIds: [id(20)] })).ok).toBe(false);
+    const c2 = buildCatalog({ ...raw, products: flagged('products', 5) });
+    expect(priceItem(c2, { productId: id(5), quantity: 1 }).ok).toBe(false);
+    expect(c2.products.get(id(5)).fromCents).toBeNull();
+  });
 });
 
 describe('mensagem do WhatsApp', () => {
@@ -168,6 +181,17 @@ describe('mensagem do WhatsApp', () => {
     expect(msg).toContain('Troco para: R$ 100,00');
     expect(msg).toContain('Observações do pedido: Tocar a campainha 2x');
     expect(msg).not.toContain('Desconto');
+  });
+  it('nome da pizzaria, taxa a combinar e sabor único sem repetição', () => {
+    const msg = buildOrderMessage({
+      ...order, storeName: "Domingo's Pizzas", deliveryFeePending: true, deliveryFeeCents: 0, totalCents: 11200,
+      items: [{ ...order.items[0], name: 'Calabresa', size: 'G', flavors: ['Calabresa'] }],
+    });
+    expect(msg.startsWith("NOVO PEDIDO — Domingo's Pizzas")).toBe(true);
+    expect(msg).toContain('2 × Calabresa\nTamanho: G\nBorda: Sem borda');
+    expect(msg).not.toContain('Sabores:');
+    expect(msg).toContain('Taxa de entrega: a combinar com a pizzaria');
+    expect(msg).toContain('TOTAL (sem a taxa de entrega): R$ 112,00');
   });
   it('codifica acentos e símbolos na URL e decodifica igual', () => {
     const msg = buildOrderMessage(order);

@@ -15,7 +15,8 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
     productId,
     quantity: initial?.quantity ?? 1,
     sizeId: initial?.sizeId ?? (product.sizes.length === 1 ? product.sizes[0].id : null),
-    flavorIds: [...(initial?.flavorIds ?? [])],
+    // Produto de um sabor só (cada sabor do cardápio é um card): já vem escolhido
+    flavorIds: [...(initial?.flavorIds ?? (product.flavors.length === 1 ? [product.flavors[0].id] : []))],
     crustId: initial?.crustId ?? null,
     extraIds: [...(initial?.extraIds ?? [])],
     notes: initial?.notes ?? '',
@@ -56,6 +57,9 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
   add(body,
     h('h2', { class: 'sheet-title', id: 'pm-title' }, product.name),
     product.description ? h('p', { class: 'sheet-desc' }, product.description) : null,
+    (product.kind === 'simple' && product.price_review) || (product.kind === 'pizza' && product.flavors.length === 1 && product.flavors[0].price_review)
+      ? h('p', { class: 'notice warn' }, 'O preço deste item ainda está em confirmação pela pizzaria. Ele poderá ser pedido assim que o valor for confirmado.')
+      : null,
     groups,
     h('label', { class: 'field-label', for: 'pm-notes' }, 'Observações'),
     notes, counter,
@@ -70,7 +74,8 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
   function renderGroups() {
     clear(groups);
     if (product.kind === 'pizza') {
-      groups.append(sizeGroup(), flavorGroup());
+      groups.append(sizeGroup());
+      if (!singleFlavor) groups.append(flavorGroup());
       const size = currentSize();
       if (size) {
         const crusts = crustsForSize(catalog, size.id);
@@ -79,6 +84,9 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
     }
     if (product.extras.length) groups.append(extrasGroup());
   }
+
+  const singleFlavor = product.kind === 'pizza' && product.flavors.length === 1;
+  const singleReview = singleFlavor && product.flavors[0].price_review;
 
   const currentSize = () => product.sizes.find((s) => s.id === sel.sizeId) || null;
 
@@ -101,10 +109,16 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
           if (sel.crustId && catalog.crustPrice(sel.crustId, s.id) === null) sel.crustId = null;
           renderGroups(); update();
         });
-        const sub = [s.slices ? `${s.slices} fatias` : null, `até ${s.max_flavors} sabor${s.max_flavors > 1 ? 'es' : ''}`].filter(Boolean).join(' · ');
+        const sub = [s.slices ? `${s.slices} pedaços` : null, singleFlavor ? null : `até ${s.max_flavors} sabor${s.max_flavors > 1 ? 'es' : ''}`].filter(Boolean).join(' · ');
+        let price = null;
+        if (singleReview) price = reviewTag();
+        else if (singleFlavor) {
+          const fp = catalog.flavorPrice(product.flavors[0].id, s.id);
+          if (fp) price = priceTag(fp.effectiveCents, fp.promoCents !== null ? fp.priceCents : null);
+        } else if (from !== null) price = h('span', { class: 'opt-price' }, `a partir de ${formatCents(from)}`);
         return h('label', { class: 'opt' }, input,
           h('span', { class: 'opt-text' }, h('span', { class: 'opt-name' }, s.name), h('span', { class: 'opt-sub' }, sub)),
-          from !== null ? h('span', { class: 'opt-price' }, `a partir de ${formatCents(from)}`) : null);
+          price);
       }));
   }
 
@@ -112,10 +126,12 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
     let min = null;
     for (const f of product.flavors) {
       const fp = catalog.flavorPrice(f.id, sizeId);
-      if (fp && (min === null || fp.effectiveCents < min)) min = fp.effectiveCents;
+      if (fp && !f.price_review && (min === null || fp.effectiveCents < min)) min = fp.effectiveCents;
     }
     return min;
   }
+
+  const reviewTag = () => h('span', { class: 'opt-price review' }, 'preço em confirmação');
 
   function flavorGroup() {
     const size = currentSize();
@@ -132,7 +148,7 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
       if (size && !fp) continue;
       const checked = sel.flavorIds.includes(f.id);
       const full = sel.flavorIds.length >= max;
-      const disabled = !size || (!checked && full);
+      const disabled = !size || f.price_review || (!checked && full);
       const input = h('input', { type: 'checkbox', value: f.id, checked, disabled });
       input.addEventListener('change', () => {
         if (input.checked) {
@@ -143,13 +159,13 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
         } else sel.flavorIds = sel.flavorIds.filter((id) => id !== f.id);
         renderGroups(); update();
       });
-      if (max === 1 && size) input.disabled = false;
+      if (max === 1 && size && !f.price_review) input.disabled = false;
       const order = sel.flavorIds.indexOf(f.id);
       group.append(h('label', { class: `opt${input.disabled ? ' disabled' : ''}` }, input,
         h('span', { class: 'opt-text' },
           h('span', { class: 'opt-name' }, f.name, order >= 0 && max > 1 ? ' ' : null, order >= 0 && max > 1 ? h('span', { class: 'opt-order', 'aria-label': `sabor ${order + 1}` }, `${order + 1}`) : null),
           f.description ? h('span', { class: 'opt-sub' }, f.description) : null),
-        fp ? priceTag(fp.effectiveCents, fp.promoCents !== null ? fp.priceCents : null) : null));
+        f.price_review ? reviewTag() : fp ? priceTag(fp.effectiveCents, fp.promoCents !== null ? fp.priceCents : null) : null));
     }
     return group;
   }
@@ -168,11 +184,11 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
       legend('Borda', 'opcional', false),
       h('label', { class: 'opt' }, none, h('span', { class: 'opt-text' }, h('span', { class: 'opt-name' }, 'Sem borda'))),
       crusts.map((c) => {
-        const input = h('input', { type: 'radio', name: 'pm-crust', value: c.id, checked: sel.crustId === c.id });
+        const input = h('input', { type: 'radio', name: 'pm-crust', value: c.id, checked: sel.crustId === c.id, disabled: !!c.price_review });
         input.addEventListener('change', () => { sel.crustId = c.id; update(); });
-        return h('label', { class: 'opt' }, input,
+        return h('label', { class: `opt${c.price_review ? ' disabled' : ''}` }, input,
           h('span', { class: 'opt-text' }, h('span', { class: 'opt-name' }, c.name)),
-          h('span', { class: 'opt-price' }, `+ ${formatCents(c.priceCents)}`));
+          c.price_review ? reviewTag() : h('span', { class: 'opt-price' }, `+ ${formatCents(c.priceCents)}`));
       }));
   }
 
@@ -180,14 +196,14 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
     return h('fieldset', { class: 'opt-group' },
       legend('Adicionais', 'opcional', false),
       product.extras.map((e) => {
-        const input = h('input', { type: 'checkbox', value: e.id, checked: sel.extraIds.includes(e.id) });
+        const input = h('input', { type: 'checkbox', value: e.id, checked: sel.extraIds.includes(e.id), disabled: !!e.price_review });
         input.addEventListener('change', () => {
           sel.extraIds = input.checked ? [...sel.extraIds, e.id] : sel.extraIds.filter((id) => id !== e.id);
           update();
         });
-        return h('label', { class: 'opt' }, input,
+        return h('label', { class: `opt${e.price_review ? ' disabled' : ''}` }, input,
           h('span', { class: 'opt-text' }, h('span', { class: 'opt-name' }, e.name)),
-          h('span', { class: 'opt-price' }, `+ ${formatCents(e.priceCents)}`));
+          e.price_review ? reviewTag() : h('span', { class: 'opt-price' }, `+ ${formatCents(e.priceCents)}`));
       }));
   }
 

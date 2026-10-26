@@ -157,15 +157,29 @@ function renderMenu() {
 }
 
 function productCard(p, category) {
-  const hasPromo = p.kind === 'simple' && p.promoCents !== null;
-  const pizzaHint = p.kind === 'pizza' && p.sizes.length
-    ? `${p.sizes.map((s) => s.name).join(', ')} · até ${Math.max(...p.sizes.map((s) => s.max_flavors))} sabores`
-    : null;
+  const hasPromo = p.kind === 'simple' && !p.price_review && p.promoCents !== null;
+  let pizzaHint = null;
+  let sizePrices = null;
+  if (p.kind === 'pizza' && p.sizes.length) {
+    const only = p.flavors.length === 1 ? p.flavors[0] : null;
+    if (only && !only.price_review) {
+      // Card de um sabor: mostra o preço de cada tamanho (ex.: P R$ 40,00 · M R$ 45,00 · G R$ 55,90)
+      sizePrices = p.sizes.map((s) => {
+        const fp = catalog.flavorPrice(only.id, s.id);
+        return fp ? h('span', { class: 'size-price' }, h('b', {}, s.name), ` ${formatCents(fp.effectiveCents)}`) : null;
+      }).filter(Boolean);
+    } else if (!only) {
+      const maxF = Math.max(...p.sizes.map((s) => s.max_flavors));
+      pizzaHint = `${p.sizes.map((s) => s.name).join(', ')} · até ${maxF} sabor${maxF > 1 ? 'es' : ''}`;
+    }
+  }
   const qtyHint = p.qtyPromoMin ? `A partir de ${p.qtyPromoMin} un.: ${formatCents(p.qtyPromoCents)} cada` : null;
 
   return h('button', {
     type: 'button', class: 'card', dataset: { product: p.id },
-    'aria-label': `${p.name}, ${p.kind === 'pizza' ? 'a partir de ' : ''}${formatCents(p.fromCents)}`,
+    'aria-label': p.fromCents === null ? `${p.name}, preço em confirmação`
+      : sizePrices?.length ? `${p.name}, ${sizePrices.map((el) => el.textContent).join(', ')}`
+        : `${p.name}, ${p.kind === 'pizza' ? 'a partir de ' : ''}${formatCents(p.fromCents)}`,
     onclick: () => openProductModal({
       catalog, productId: p.id, categoryName: category.name,
       onConfirm: (sel) => { cart.add(sel); toast(`${p.name} adicionado ao carrinho`); },
@@ -177,10 +191,14 @@ function productCard(p, category) {
     p.description ? h('p', { class: 'card-desc' }, p.description) : null,
     pizzaHint ? h('span', { class: 'card-hint' }, pizzaHint) : null,
     qtyHint ? h('span', { class: 'card-hint' }, qtyHint) : null,
-    h('div', { class: 'card-foot' },
-      p.kind === 'pizza' ? h('span', { class: 'price-from' }, 'a partir de') : null,
-      hasPromo ? h('span', { class: 'price-old' }, formatCents(p.priceCents)) : null,
-      h('span', { class: `price${hasPromo ? ' price-promo' : ''}` }, formatCents(p.fromCents)))),
+    p.fromCents === null
+      ? h('div', { class: 'card-foot' }, h('span', { class: 'price-review' }, 'Preço em confirmação'))
+      : sizePrices?.length
+        ? h('div', { class: 'card-foot size-prices' }, sizePrices)
+        : h('div', { class: 'card-foot' },
+        p.kind === 'pizza' ? h('span', { class: 'price-from' }, 'a partir de') : null,
+        hasPromo ? h('span', { class: 'price-old' }, formatCents(p.priceCents)) : null,
+        h('span', { class: `price${hasPromo ? ' price-promo' : ''}` }, formatCents(p.fromCents)))),
   p.image_url
     ? h('img', { class: 'thumb', src: p.image_url, alt: '', loading: 'lazy', width: 96, height: 96 })
     : h('div', { class: 'thumb placeholder', 'aria-hidden': 'true' }, illustration(p, category.name)));

@@ -10,6 +10,7 @@ versão.
 - Arquitetura, banco, RLS e regra de preço: [docs/ARQUITETURA.md](docs/ARQUITETURA.md)
 - Registro das etapas e testes: [docs/ETAPAS.md](docs/ETAPAS.md)
 - Checklist de lançamento: [docs/CHECKLIST-LANCAMENTO.md](docs/CHECKLIST-LANCAMENTO.md)
+- Cardápio real da Domingo's Pizzas (sabores, preços em revisão, como atualizar): [docs/CARDAPIO-DOMINGOS.md](docs/CARDAPIO-DOMINGOS.md)
 
 > **O que depende de você:** conta no Supabase, conta na Hostinger com o
 > domínio, número de WhatsApp da pizzaria e os dados reais (nome, logo,
@@ -43,7 +44,14 @@ o conteúdo de cada arquivo (copiar, colar, **Run**):
    políticas e a função `calculate_order`.
 2. `supabase/storage.sql`: bucket público `menu-images` (leitura pública,
    envio só por administradores).
-3. **Opcional:** `supabase/seed_demo.sql` cria dados de demonstração
+3. **Cardápio da Domingo's Pizzas:** `supabase/seed_domingos.sql` carrega os
+   51 sabores, tamanhos P/M/G, bordas, adicionais, horário e WhatsApp do
+   cardápio impresso (veja [docs/CARDAPIO-DOMINGOS.md](docs/CARDAPIO-DOMINGOS.md)).
+   Ele **substitui** o cardápio que estiver no banco.
+   Se você já tinha rodado uma versão antiga do `schema.sql`, rode antes
+   `supabase/migrations/001_preco_em_confirmacao.sql`.
+
+   **Alternativa:** `supabase/seed_demo.sql` cria dados de demonstração
    (com aviso de "modo demonstração" no site). Se preferir começar vazio, não rode
    o seed. Nesse caso, crie a linha da loja com:
 
@@ -100,9 +108,10 @@ Também há um ambiente 100% local que imita o Supabase (PostgreSQL + PostgREST
 + login falso), usado nos testes automatizados. Veja `dev/README.md`. Com ele:
 
 ```bash
-bash supabase/tests/run.sh                       # 63 testes de RLS e preço no banco
+bash supabase/tests/run.sh                       # 82 testes de RLS e preço no banco
 LOCAL_ANON_KEY=$(node dev/make-jwt.mjs anon) \
-  npx playwright test                            # 40 testes no navegador (celular e desktop)
+  npx playwright test                            # 44 testes no navegador (celular e desktop)
+SEED=domingos bash dev/reset-db.sh               # abre o site local com o cardápio real
 ```
 
 ## 6. Gerar os arquivos de produção

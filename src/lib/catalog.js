@@ -75,11 +75,14 @@ export function buildCatalog(raw) {
   };
 }
 
+// Itens marcados com "preço em confirmação" não entram no "a partir de":
+// o valor ainda não foi confirmado pela pizzaria. Sem nenhum preço confirmado → null.
 function startingPrice(product, flavorPrice) {
-  if (product.kind === 'simple') return product.promoCents ?? product.priceCents;
+  if (product.kind === 'simple') return product.price_review ? null : product.promoCents ?? product.priceCents;
   let min = null;
   for (const s of product.sizes) {
     for (const f of product.flavors) {
+      if (f.price_review) continue;
       const fp = flavorPrice.get(`${f.id}|${s.id}`);
       if (fp && (min === null || fp.effectiveCents < min)) min = fp.effectiveCents;
     }

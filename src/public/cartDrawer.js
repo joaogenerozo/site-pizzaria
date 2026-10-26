@@ -21,7 +21,7 @@ function saveCustomer(c) {
   try {
     localStorage.setItem(CUSTOMER_KEY, JSON.stringify({
       name: c.name, phone: c.phone, mode: c.mode, zoneId: c.zoneId,
-      street: c.street, number: c.number, complement: c.complement, reference: c.reference,
+      street: c.street, number: c.number, complement: c.complement, reference: c.reference, district: c.district,
     }));
   } catch { /* sem armazenamento: segue normalmente */ }
 }
@@ -31,8 +31,14 @@ export function openCartDrawer({ catalog, cart }) {
   const form = {
     mode: s.delivery_enabled ? 'delivery' : 'pickup',
     paymentId: null, needsChange: false, changeFor: '', notes: '',
-    name: '', phone: '', zoneId: '', street: '', number: '', complement: '', reference: '',
+    name: '', phone: '', zoneId: '', street: '', number: '', complement: '', reference: '', district: '',
     ...loadCustomer(),
+  };
+  if (catalog.zones.length === 1) form.zoneId = catalog.zones[0].id;
+  // Região com "taxa a combinar": o cliente digita o próprio bairro
+  const feePending = (zoneId) => {
+    const z = catalog.zones.find((x) => x.id === zoneId);
+    return !!z && (z.fee === null || z.fee === undefined);
   };
   if (form.mode === 'delivery' && !s.delivery_enabled) form.mode = 'pickup';
   if (form.mode === 'pickup' && !s.pickup_enabled) form.mode = 'delivery';
@@ -145,9 +151,10 @@ export function openCartDrawer({ catalog, cart }) {
         const sel = h('select', { class: 'input', id: 'f-zoneId', name: 'zoneId', 'aria-invalid': formErrors.zoneId ? 'true' : null },
           h('option', { value: '' }, 'Selecione o bairro'),
           catalog.zones.map((z) => h('option', { value: z.id, selected: form.zoneId === z.id },
-            `${z.name} — ${Number(z.fee) > 0 ? formatCents(toCents(z.fee)) : 'grátis'}`)));
-        sel.addEventListener('change', () => { form.zoneId = sel.value; });
-        f.append(field('Bairro', sel, 'zoneId'),
+            `${z.name} — ${z.fee === null || z.fee === undefined ? 'taxa a combinar' : Number(z.fee) > 0 ? formatCents(toCents(z.fee)) : 'grátis'}`)));
+        sel.addEventListener('change', () => { form.zoneId = sel.value; render(); });
+        add(f, field('Bairro / região', sel, 'zoneId'),
+          feePending(form.zoneId) ? field('Seu bairro', input('district', { autocomplete: 'address-level3', maxlength: 100 })) : null,
           h('div', { class: 'row-2' },
             field('Rua / avenida', input('street', { autocomplete: 'address-line1', maxlength: 120 })),
             field('Número', input('number', { inputmode: 'numeric', maxlength: 20 }))),
@@ -203,6 +210,7 @@ export function openCartDrawer({ catalog, cart }) {
     if (form.mode === 'delivery') {
       if (!s.delivery_enabled) e.mode = 'Entrega indisponível.';
       if (!catalog.zones.some((z) => z.id === form.zoneId)) e.zoneId = 'Selecione o bairro.';
+      else if (feePending(form.zoneId) && cleanText(form.district, 100).length < 2) e.district = 'Informe o bairro.';
       if (cleanText(form.street).length < 3) e.street = 'Informe a rua.';
       if (!cleanText(form.number, 20)) e.number = 'Informe o número (ou "s/n").';
     } else if (!s.pickup_enabled) e.mode = 'Retirada indisponível.';
@@ -252,7 +260,7 @@ export function openCartDrawer({ catalog, cart }) {
       customer: { name: form.name, phone: normalizeBrPhone(form.phone) },
       mode: form.mode,
       address: form.mode === 'delivery' ? {
-        street: form.street, number: form.number, complement: form.complement, district: zone?.name ?? '', reference: form.reference,
+        street: form.street, number: form.number, complement: form.complement, district: feePending(form.zoneId) ? form.district : zone?.name ?? '', reference: form.reference,
       } : null,
       payment: { name: payment.name, changeFor: payment.asks_change && form.needsChange ? toCents(form.changeFor) : null },
       notes: form.notes,
@@ -263,7 +271,9 @@ export function openCartDrawer({ catalog, cart }) {
       subtotalCents: toCents(quote.subtotal),
       discountCents: toCents(quote.discount),
       deliveryFeeCents: toCents(quote.delivery_fee),
+      deliveryFeePending: quote.delivery_fee_pending === true,
       totalCents: toCents(quote.total),
+      storeName: s.name,
     };
   }
 
@@ -281,8 +291,9 @@ export function openCartDrawer({ catalog, cart }) {
       h('div', { class: 'totals' },
         row('Subtotal', formatCents(order.subtotalCents)),
         order.discountCents > 0 ? row('Desconto', `- ${formatCents(order.discountCents)}`, 'discount') : null,
-        row('Taxa de entrega', order.mode === 'delivery' ? formatCents(order.deliveryFeeCents) : 'Retirada'),
-        row('Total', formatCents(order.totalCents), 'grand')),
+        row('Taxa de entrega', order.mode !== 'delivery' ? 'Retirada' : order.deliveryFeePending ? 'a combinar' : formatCents(order.deliveryFeeCents)),
+        row(order.deliveryFeePending ? 'Total sem a taxa de entrega' : 'Total', formatCents(order.totalCents), 'grand')),
+      order.deliveryFeePending ? h('p', { class: 'hint' }, 'A pizzaria informa a taxa de entrega pelo WhatsApp.') : null,
       h('div', { class: 'review-block' },
         h('p', {}, h('strong', {}, order.customer.name), ` · ${formatBrPhone(order.customer.phone)}`),
         h('p', {}, order.mode === 'delivery'
