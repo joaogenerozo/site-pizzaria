@@ -12,6 +12,10 @@ const options = async (table, filter) => {
   return (filter ? data.filter(filter) : data).map((r) => ({ value: r.id, label: r.name }));
 };
 const yes = (v) => (v ? 'Sim' : 'Não');
+// Marca um preço que ainda precisa ser confirmado pela pizzaria: o item aparece
+// no cardápio como "preço em confirmação" e o banco recusa pedidos com ele.
+const reviewField = { key: 'price_review', label: 'Preço em confirmação (não deixa pedir até desmarcar)', type: 'bool' };
+const reviewCol = (r) => (r.price_review ? h('span', { class: 'tag-review' }, 'Preço em confirmação') : null);
 const sortField = { key: 'sort_order', label: 'Ordem de exibição', type: 'int', min: 0, max: 100000, help: 'Menor aparece primeiro. Também dá para usar as setas da lista.' };
 
 // ---------------------------------------------------------------- Produtos
@@ -34,6 +38,7 @@ export async function productsView() {
       { label: 'Nome', render: (r) => h('strong', {}, r.name) },
       { label: 'Categoria', render: (r) => catName.get(r.category_id) ?? '—' },
       { label: 'Preço', render: (r) => (r.kind === 'pizza' ? 'pelos sabores' : r.promo_price ? h('span', {}, h('s', {}, formatPrice(r.price)), ' ', formatPrice(r.promo_price)) : formatPrice(r.price)) },
+      { label: 'Revisão', render: reviewCol },
     ],
     fields: async () => [
       { key: 'name', label: 'Nome', required: true, maxlength: 120 },
@@ -45,6 +50,7 @@ export async function productsView() {
       { key: 'promo_price', label: 'Preço promocional (R$)', type: 'money', show: isSimple, help: 'Deixe vazio se não houver promoção. Precisa ser menor que o preço.' },
       { key: 'qty_promo_min', label: 'Promoção por quantidade: a partir de quantas unidades', type: 'int', min: 2, max: 99, show: isSimple },
       { key: 'qty_promo_price', label: 'Promoção por quantidade: preço de cada unidade (R$)', type: 'money', show: isSimple },
+      { ...reviewField, show: isSimple },
       { key: 'size_ids', label: 'Tamanhos oferecidos', type: 'multi', options: await options('pizza_sizes'), show: isPizza },
       { key: 'flavor_ids', label: 'Sabores permitidos', type: 'multi', options: await options('pizza_flavors'), show: isPizza },
       { key: 'extra_ids', label: 'Adicionais permitidos', type: 'multi', options: await options('extras') },
@@ -103,11 +109,12 @@ export async function pizzaView() {
     table: 'pizza_flavors', title: 'Sabores', singular: 'sabor', orderKey: 'sort_order', activeKey: 'active',
     intro: 'Depois de criar o sabor, preencha o preço dele em cada tamanho na tabela abaixo.',
     defaults: () => ({ active: true, sort_order: 0 }),
-    columns: [{ label: 'Nome', render: (r) => h('strong', {}, r.name) }],
+    columns: [{ label: 'Nome', render: (r) => h('strong', {}, r.name) }, { label: 'Revisão', render: reviewCol }],
     fields: [
       { key: 'name', label: 'Nome', required: true, maxlength: 80 },
       { key: 'description', label: 'Ingredientes / descrição', type: 'textarea', maxlength: 500 },
       { key: 'image_url', label: 'Imagem (URL https)', type: 'image' },
+      reviewField,
       { key: 'active', label: 'Ativo', type: 'bool' },
       sortField,
     ],
@@ -117,8 +124,8 @@ export async function pizzaView() {
     table: 'crusts', title: 'Bordas', singular: 'borda', orderKey: 'sort_order', activeKey: 'active',
     intro: 'O preço de cada borda por tamanho fica na tabela abaixo. Sem preço no tamanho = borda indisponível nele.',
     defaults: () => ({ active: true, sort_order: 0 }),
-    columns: [{ label: 'Nome', render: (r) => h('strong', {}, r.name) }],
-    fields: [{ key: 'name', label: 'Nome', required: true, maxlength: 60 }, { key: 'active', label: 'Ativa', type: 'bool' }, sortField],
+    columns: [{ label: 'Nome', render: (r) => h('strong', {}, r.name) }, { label: 'Revisão', render: reviewCol }],
+    fields: [{ key: 'name', label: 'Nome', required: true, maxlength: 60 }, reviewField, { key: 'active', label: 'Ativa', type: 'bool' }, sortField],
     onChange: refresh,
   });
   wrap.append(sizes.el, flavors.el, crusts.el, matrices);
@@ -211,10 +218,11 @@ export function extrasView() {
     table: 'extras', title: 'Adicionais', singular: 'adicional', orderKey: 'sort_order', activeKey: 'active',
     intro: 'Depois de criar, marque em quais produtos o adicional pode ser escolhido (na edição do produto).',
     defaults: () => ({ active: true, sort_order: 0 }),
-    columns: [{ label: 'Nome', render: (r) => h('strong', {}, r.name) }, { label: 'Preço', render: (r) => formatPrice(r.price) }],
+    columns: [{ label: 'Nome', render: (r) => h('strong', {}, r.name) }, { label: 'Preço', render: (r) => formatPrice(r.price) }, { label: 'Revisão', render: reviewCol }],
     fields: [
       { key: 'name', label: 'Nome', required: true, maxlength: 60 },
       { key: 'price', label: 'Preço (R$)', type: 'money', required: true },
+      reviewField,
       { key: 'active', label: 'Ativo', type: 'bool' },
       sortField,
     ],
@@ -228,10 +236,10 @@ export function deliveryView() {
     crudView({
       table: 'delivery_zones', title: 'Bairros e taxas de entrega', singular: 'bairro', orderKey: 'sort_order', activeKey: 'active',
       defaults: () => ({ active: true, sort_order: 0 }),
-      columns: [{ label: 'Bairro / região', render: (r) => h('strong', {}, r.name) }, { label: 'Taxa', render: (r) => formatPrice(r.fee) }, { label: 'Pedido mínimo', render: (r) => (r.min_order_value != null ? formatPrice(r.min_order_value) : 'padrão da loja') }],
+      columns: [{ label: 'Bairro / região', render: (r) => h('strong', {}, r.name) }, { label: 'Taxa', render: (r) => (r.fee == null ? 'a combinar' : formatPrice(r.fee)) }, { label: 'Pedido mínimo', render: (r) => (r.min_order_value != null ? formatPrice(r.min_order_value) : 'padrão da loja') }],
       fields: [
         { key: 'name', label: 'Bairro / região', required: true, maxlength: 100 },
-        { key: 'fee', label: 'Taxa de entrega (R$)', type: 'money', required: true, help: 'Use 0,00 para entrega grátis.' },
+        { key: 'fee', label: 'Taxa de entrega (R$)', type: 'money', help: 'Use 0,00 para entrega grátis. Deixe vazio para "taxa a combinar": o total sai sem a taxa e a pizzaria informa o valor pelo WhatsApp.' },
         { key: 'min_order_value', label: 'Pedido mínimo deste bairro (R$, opcional)', type: 'money', help: 'Vazio = usa o pedido mínimo geral da loja.' },
         { key: 'active', label: 'Ativo', type: 'bool' },
         sortField,
@@ -320,6 +328,7 @@ export async function settingsView() {
 
   async function save() {
     const payload = {}; let ok = true;
+    status.textContent = ''; // não deixa a mensagem de um erro anterior presa
     for (const [f, c] of controls) {
       const r = parseField(f, c.getValue());
       if (r.error) { ok = false; c.setError?.(r.error); } else { c.setError?.(''); payload[f.key] = r.value ?? null; }

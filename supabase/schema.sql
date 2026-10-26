@@ -108,7 +108,7 @@ create table public.payment_methods (
 create table public.delivery_zones (
   id              uuid primary key default gen_random_uuid(),
   name            text not null check (char_length(name) between 1 and 100), -- bairro/região
-  fee             numeric(10,2) not null check (fee >= 0),
+  fee             numeric(10,2) check (fee >= 0), -- vazio = taxa a combinar com a pizzaria
   min_order_value numeric(10,2) check (min_order_value >= 0), -- sobrepõe o mínimo geral
   active          boolean not null default true,
   sort_order      integer not null default 0,
@@ -144,6 +144,8 @@ create table public.products (
   qty_promo_min   integer check (qty_promo_min >= 2),
   qty_promo_price numeric(10,2) check (qty_promo_price >= 0),
   badge           text check (char_length(badge) <= 30), -- ex.: "Promoção", "Novo"
+  -- Preço em confirmação: aparece no cardápio, mas não pode ser pedido
+  price_review    boolean not null default false,
   available       boolean not null default true,
   sort_order      integer not null default 0,
   created_at      timestamptz not null default now(),
@@ -170,6 +172,7 @@ create table public.pizza_flavors (
   name        text not null check (char_length(name) between 1 and 80),
   description text check (char_length(description) <= 500),
   image_url   text check (image_url is null or image_url ~ '^https://'),
+  price_review boolean not null default false,
   active      boolean not null default true,
   sort_order  integer not null default 0,
   created_at  timestamptz not null default now(),
@@ -202,6 +205,7 @@ create table public.product_flavors (
 create table public.crusts (
   id          uuid primary key default gen_random_uuid(),
   name        text not null check (char_length(name) between 1 and 60),
+  price_review boolean not null default false,
   active      boolean not null default true,
   sort_order  integer not null default 0,
   created_at  timestamptz not null default now(),
@@ -220,6 +224,7 @@ create table public.extras (
   id          uuid primary key default gen_random_uuid(),
   name        text not null check (char_length(name) between 1 and 60),
   price       numeric(10,2) not null check (price >= 0),
+  price_review boolean not null default false,
   active      boolean not null default true,
   sort_order  integer not null default 0,
   created_at  timestamptz not null default now(),
@@ -402,7 +407,7 @@ begin
     if not s.delivery_enabled then raise exception 'Entrega indisponível'; end if;
     select * into z from public.delivery_zones where id = p_zone_id and active;
     if not found then raise exception 'Bairro de entrega inválido'; end if;
-    fee := z.fee;
+    fee := coalesce(z.fee, 0); -- vazio = taxa a combinar (fora do total)
   elsif p_mode = 'pickup' then
     if not s.pickup_enabled then raise exception 'Retirada indisponível'; end if;
   else
@@ -422,6 +427,9 @@ begin
     select * into p from public.products
       where id = (item->>'product_id')::uuid and available;
     if not found then raise exception 'Item %: produto indisponível', idx; end if;
+    if p.kind = 'simple' and p.price_review then
+      raise exception 'Item %: o preço de % ainda está em confirmação', idx, p.name;
+    end if;
     if not exists (select 1 from public.categories c where c.id = p.category_id and c.active) then
       raise exception 'Item %: produto indisponível', idx;
     end if;
@@ -439,6 +447,11 @@ begin
     -- todos os IDs enviados precisam existir, estar liberados e não se repetir
     if n_found <> n_extras then
       raise exception 'Item %: adicional inválido ou repetido', idx;
+    end if;
+    if exists (select 1 from public.extras e
+               where e.price_review
+                 and e.id in (select (x)::uuid from jsonb_array_elements_text(coalesce(item->'extra_ids', '[]'::jsonb)) x)) then
+      raise exception 'Item %: preço de adicional em confirmação', idx;
     end if;
 
     crust_val := 0;
@@ -481,13 +494,18 @@ begin
       if n_found <> n_flavors then
         raise exception 'Item %: sabor inválido, repetido ou sem preço no tamanho %', idx, sz.name;
       end if;
+      if exists (select 1 from public.pizza_flavors f
+                 where f.price_review
+                   and f.id in (select (x)::uuid from jsonb_array_elements_text(item->'flavor_ids') x)) then
+        raise exception 'Item %: preço de sabor em confirmação', idx;
+      end if;
 
       if item ? 'crust_id' and jsonb_typeof(item->'crust_id') <> 'null' then
         select cp.price into crust_val
           from public.crusts c
           join public.crust_prices cp on cp.crust_id = c.id and cp.size_id = sz.id
-          where c.id = (item->>'crust_id')::uuid and c.active;
-        if not found then raise exception 'Item %: borda inválida', idx; end if;
+          where c.id = (item->>'crust_id')::uuid and c.active and not c.price_review;
+        if not found then raise exception 'Item %: borda inválida ou com preço em confirmação', idx; end if;
       end if;
     end if;
 
@@ -524,6 +542,7 @@ begin
     'subtotal', subtotal,
     'discount', discount,
     'delivery_fee', fee,
+    'delivery_fee_pending', p_mode = 'delivery' and z.fee is null,
     'total', subtotal - discount + fee,
     'is_demo', s.is_demo
   );

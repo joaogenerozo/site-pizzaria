@@ -18,4 +18,6 @@ grant all on storage.objects to anon, authenticated;
 -- Papel de login usado pelo PostgREST no ambiente de desenvolvimento local
 do $$ begin if not exists (select from pg_roles where rolname='authenticator') then
   create role authenticator login noinherit; end if; end $$;
+-- senha só para o teste local (o PostgREST de dev/ conecta por TCP)
+alter role authenticator password 'senha-local-authenticator';
 grant anon, authenticated to authenticator;

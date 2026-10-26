@@ -101,6 +101,9 @@ function renderHero() {
 
 const range = (a, b) => (b != null && b !== a ? `${a}–${b} min` : `${a} min`);
 
+// Taxa vazia (null) = "a combinar"; só 0,00 é entrega grátis.
+const zoneFeeLabel = (fee) => (fee === null || fee === undefined ? 'A combinar' : Number(fee) > 0 ? formatPrice(fee) : 'Grátis');
+
 function renderToolbar() {
   const input = h('input', {
     type: 'search', id: 'search', placeholder: 'Buscar no cardápio', autocomplete: 'off', 'aria-label': 'Buscar produtos',
@@ -114,13 +117,29 @@ function renderToolbar() {
   });
   clearBtn.addEventListener('click', () => { input.value = ''; query = ''; clearBtn.hidden = true; renderMenu(); input.focus(); });
 
+  const nav = h('nav', { class: 'cat-nav', id: 'cat-nav', 'aria-label': 'Categorias' },
+    catalog.categories.map((c) => h('a', {
+      class: 'cat-link', href: `#cat-${c.id}`, dataset: { cat: c.id },
+      onclick: (e) => { e.preventDefault(); scrollToCategory(c.id); },
+    }, c.name)));
+  // Setas para quem usa mouse: rolar a barra de lado com a roda é difícil
+  const arrow = (dir) => h('button', {
+    type: 'button', class: 'cat-arrow', 'aria-hidden': 'true', tabindex: '-1',
+    onclick: () => nav.scrollBy({ left: dir * nav.clientWidth * 0.7, behavior: 'smooth' }),
+  }, icon(dir < 0 ? 'left' : 'right'));
+  const prev = arrow(-1);
+  const next = arrow(1);
+  const updateArrows = () => {
+    prev.disabled = nav.scrollLeft <= 1;
+    next.disabled = nav.scrollLeft + nav.clientWidth >= nav.scrollWidth - 1;
+  };
+  nav.addEventListener('scroll', updateArrows, { passive: true });
+  window.addEventListener('resize', updateArrows);
+  requestAnimationFrame(updateArrows);
+
   return h('div', { class: 'toolbar' }, h('div', { class: 'wrap' },
     h('div', { class: 'search', role: 'search' }, icon('search'), input, clearBtn),
-    h('nav', { class: 'cat-nav', id: 'cat-nav', 'aria-label': 'Categorias' },
-      catalog.categories.map((c) => h('a', {
-        class: 'cat-link', href: `#cat-${c.id}`, dataset: { cat: c.id },
-        onclick: (e) => { e.preventDefault(); scrollToCategory(c.id); },
-      }, c.name)))));
+    h('div', { class: 'cat-row' }, prev, nav, next)));
 }
 
 function scrollToCategory(id) {
@@ -157,30 +176,49 @@ function renderMenu() {
 }
 
 function productCard(p, category) {
-  const hasPromo = p.kind === 'simple' && p.promoCents !== null;
-  const pizzaHint = p.kind === 'pizza' && p.sizes.length
-    ? `${p.sizes.map((s) => s.name).join(', ')} · até ${Math.max(...p.sizes.map((s) => s.max_flavors))} sabores`
-    : null;
+  const hasPromo = p.kind === 'simple' && !p.price_review && p.promoCents !== null;
+  let pizzaHint = null;
+  let sizePrices = null;
+  if (p.kind === 'pizza' && p.sizes.length) {
+    const only = p.flavors.length === 1 ? p.flavors[0] : null;
+    if (only && !only.price_review) {
+      // Card de um sabor: mostra o preço de cada tamanho (ex.: P R$ 40,00 · M R$ 45,00 · G R$ 55,90)
+      sizePrices = p.sizes.map((s) => {
+        const fp = catalog.flavorPrice(only.id, s.id);
+        return fp ? h('span', { class: 'size-price' }, h('b', {}, s.name), ` ${formatCents(fp.effectiveCents)}`) : null;
+      }).filter(Boolean);
+    } else if (!only) {
+      const maxF = Math.max(...p.sizes.map((s) => s.max_flavors));
+      pizzaHint = `${p.sizes.map((s) => s.name).join(', ')} · até ${maxF} sabor${maxF > 1 ? 'es' : ''}`;
+    }
+  }
   const qtyHint = p.qtyPromoMin ? `A partir de ${p.qtyPromoMin} un.: ${formatCents(p.qtyPromoCents)} cada` : null;
 
-  return h('button', {
-    type: 'button', class: 'card', dataset: { product: p.id },
-    'aria-label': `${p.name}, ${p.kind === 'pizza' ? 'a partir de ' : ''}${formatCents(p.fromCents)}`,
-    onclick: () => openProductModal({
-      catalog, productId: p.id, categoryName: category.name,
-      onConfirm: (sel) => { cart.add(sel); toast(`${p.name} adicionado ao carrinho`); },
-    }),
-  },
+  // Card = artigo com título; o botão fica no título e cobre o card inteiro (ver .card-open no CSS)
+  return h('article', { class: 'card', dataset: { product: p.id } },
   h('div', { class: 'card-body' },
     p.badge ? h('span', { class: `badge${hasPromo || /promo/i.test(p.badge) ? ' promo' : ''}` }, p.badge) : null,
-    h('h3', { class: 'card-name' }, p.name),
+    h('h3', { class: 'card-name' }, h('button', {
+      type: 'button', class: 'card-open',
+      'aria-label': p.fromCents === null ? `${p.name}, preço em confirmação`
+        : sizePrices?.length ? `${p.name}, ${sizePrices.map((el) => el.textContent).join(', ')}`
+          : `${p.name}, ${p.kind === 'pizza' ? 'a partir de ' : ''}${formatCents(p.fromCents)}`,
+      onclick: () => openProductModal({
+        catalog, productId: p.id, categoryName: category.name,
+        onConfirm: (sel) => { cart.add(sel); toast(`${p.name} adicionado ao carrinho`); },
+      }),
+    }, p.name)),
     p.description ? h('p', { class: 'card-desc' }, p.description) : null,
     pizzaHint ? h('span', { class: 'card-hint' }, pizzaHint) : null,
     qtyHint ? h('span', { class: 'card-hint' }, qtyHint) : null,
-    h('div', { class: 'card-foot' },
-      p.kind === 'pizza' ? h('span', { class: 'price-from' }, 'a partir de') : null,
-      hasPromo ? h('span', { class: 'price-old' }, formatCents(p.priceCents)) : null,
-      h('span', { class: `price${hasPromo ? ' price-promo' : ''}` }, formatCents(p.fromCents)))),
+    p.fromCents === null
+      ? h('div', { class: 'card-foot' }, h('span', { class: 'price-review' }, 'Preço em confirmação'))
+      : sizePrices?.length
+        ? h('div', { class: 'card-foot size-prices' }, sizePrices)
+        : h('div', { class: 'card-foot' },
+        p.kind === 'pizza' ? h('span', { class: 'price-from' }, 'a partir de') : null,
+        hasPromo ? h('span', { class: 'price-old' }, formatCents(p.priceCents)) : null,
+        h('span', { class: `price${hasPromo ? ' price-promo' : ''}` }, formatCents(p.fromCents)))),
   p.image_url
     ? h('img', { class: 'thumb', src: p.image_url, alt: '', loading: 'lazy', width: 96, height: 96 })
     : h('div', { class: 'thumb placeholder', 'aria-hidden': 'true' }, illustration(p, category.name)));
@@ -232,7 +270,7 @@ function openInfo() {
           Number(s.min_order_value) > 0 ? h('p', {}, `Pedido mínimo: ${formatPrice(s.min_order_value)}`) : null),
         s.delivery_enabled && catalog.zones.length ? h('div', {}, h('h3', {}, 'Taxas de entrega'),
           h('table', { class: 'hours-table' }, h('tbody', {}, catalog.zones.map((z) =>
-            h('tr', {}, h('td', {}, z.name), h('td', {}, Number(z.fee) > 0 ? formatPrice(z.fee) : 'Grátis')))))) : null,
+            h('tr', {}, h('td', {}, z.name), h('td', {}, zoneFeeLabel(z.fee))))))) : null,
         catalog.payments.length ? h('div', {}, h('h3', {}, 'Formas de pagamento'),
           h('div', { class: 'chips' }, catalog.payments.map((p) => h('span', { class: 'chip' }, p.name)))) : null)));
   dialog.addEventListener('close', () => dialog.remove());
@@ -242,6 +280,12 @@ function openInfo() {
 }
 
 // ---------------------------------------------------------------- rodapé
+// Telefone brasileiro com DDD (10 ou 11 dígitos) vira link de ligação
+const telHref = (display) => {
+  const d = String(display).replace(/\D/g, '');
+  return /^\d{10,11}$/.test(d) ? `tel:+55${d}` : null;
+};
+
 function renderFooter() {
   const s = catalog.settings;
   const year = new Date().getFullYear();
@@ -250,14 +294,14 @@ function renderFooter() {
       s.address_line ? h('p', {}, s.address_line) : null,
       s.maps_url ? h('p', {}, h('a', { href: s.maps_url, target: '_blank', rel: 'noopener noreferrer' }, 'Como chegar')) : null),
     h('div', {}, h('h3', {}, 'Contato'),
-      s.phone_display ? h('p', {}, s.phone_display) : null,
+      s.phone_display ? h('p', {}, telHref(s.phone_display) ? h('a', { href: telHref(s.phone_display) }, s.phone_display) : s.phone_display) : null,
       s.whatsapp_number ? h('p', {}, h('a', { href: `https://wa.me/${s.whatsapp_number}`, target: '_blank', rel: 'noopener noreferrer' }, 'WhatsApp')) : null,
       s.instagram_url ? h('p', {}, h('a', { href: s.instagram_url, target: '_blank', rel: 'noopener noreferrer' }, 'Instagram')) : null,
       !s.phone_display && !s.whatsapp_number && !s.instagram_url ? h('p', {}, 'Contatos ainda não informados.') : null),
     h('div', {}, h('h3', {}, 'Horários'),
       hoursByDay(catalog.hours).filter((d) => d.slots.length).map((d) => h('p', {}, `${d.name}: ${d.slots.join(', ')}`)),
       !catalog.hours.length ? h('p', {}, 'Ainda não informados.') : null),
-    h('p', { class: 'fine' }, `© ${year} ${s.name}. Os pedidos são enviados pelo WhatsApp e só são confirmados após a resposta da pizzaria.`)));
+    h('p', { class: 'fine' }, `© ${year} ${s.name}. Os pedidos são enviados pelo WhatsApp e só são confirmados após a resposta da pizzaria. Seu nome, telefone e endereço ficam salvos só neste aparelho, para agilizar o próximo pedido, e vão para a pizzaria apenas na mensagem que você envia.`)));
 }
 
 // ---------------------------------------------------------------- carrinho (barra)

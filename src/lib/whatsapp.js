@@ -31,12 +31,13 @@ export function isValidWhatsappNumber(n) {
  *   address: { street, number, complement, district, reference } | null,
  *   payment: { name, changeFor: cents|null }, notes,
  *   items: [{ quantity, name, size, flavors[], crust, extras[], notes, unitCents, lineCents }],
- *   subtotalCents, discountCents, deliveryFeeCents, totalCents,
+ *   subtotalCents, discountCents, deliveryFeeCents, deliveryFeePending, totalCents, storeName,
  * }
+ * deliveryFeePending: a taxa de entrega será combinada com a pizzaria (fora do total).
  */
 export function buildOrderMessage(order) {
   const L = [];
-  L.push('NOVO PEDIDO — CARDÁPIO DIGITAL');
+  L.push(order.storeName ? `NOVO PEDIDO — ${cleanText(order.storeName, 120)}` : 'NOVO PEDIDO — CARDÁPIO DIGITAL');
   L.push('');
   L.push(`Cliente: ${cleanText(order.customer.name, 80)}`);
   L.push(`Telefone: ${formatBrPhone(order.customer.phone)}`);
@@ -46,7 +47,9 @@ export function buildOrderMessage(order) {
   for (const it of order.items) {
     L.push(`${it.quantity} × ${cleanText(it.name, 120)}`);
     if (it.size) L.push(`Tamanho: ${cleanText(it.size, 60)}`);
-    if (it.flavors?.length) L.push(`Sabores: ${it.flavors.map((f) => cleanText(f, 80)).join(' / ')}`);
+    // Produto de um sabor só (ex.: "Calabresa") não repete o sabor na mensagem
+    const sameAsName = it.flavors?.length === 1 && it.flavors[0] === it.name;
+    if (it.flavors?.length && !sameAsName) L.push(`Sabores: ${it.flavors.map((f) => cleanText(f, 80)).join(' / ')}`);
     if (it.size) L.push(`Borda: ${it.crust ? cleanText(it.crust, 60) : 'Sem borda'}`);
     if (it.extras?.length) L.push(`Adicionais: ${it.extras.map((e) => cleanText(e, 60)).join(', ')}`);
     if (it.notes) L.push(`Observações: ${cleanText(it.notes, 140)}`);
@@ -55,8 +58,13 @@ export function buildOrderMessage(order) {
   }
   L.push(`Subtotal: ${formatCents(order.subtotalCents)}`);
   if (order.discountCents > 0) L.push(`Desconto: - ${formatCents(order.discountCents)}`);
-  L.push(`Taxa de entrega: ${formatCents(order.deliveryFeeCents)}`);
-  L.push(`TOTAL: ${formatCents(order.totalCents)}`);
+  if (order.deliveryFeePending) {
+    L.push('Taxa de entrega: a combinar com a pizzaria');
+    L.push(`TOTAL (sem a taxa de entrega): ${formatCents(order.totalCents)}`);
+  } else {
+    L.push(`Taxa de entrega: ${formatCents(order.deliveryFeeCents)}`);
+    L.push(`TOTAL: ${formatCents(order.totalCents)}`);
+  }
   L.push('');
   if (order.mode === 'delivery' && order.address) {
     const a = order.address;

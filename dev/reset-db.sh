@@ -1,14 +1,18 @@
 #!/bin/bash
-# Recria o banco local "dev". Variáveis PGHOST/PGPORT/PGUSER apontam para o Postgres local.
+# Recria o banco local "dev". Variáveis PGHOST/PGPORT/PGUSER/PGPASSWORD apontam para o Postgres local
+# (padrão: localhost:5432, usuário postgres).
+# SEED=domingos carrega o cardápio real (supabase/seed_domingos.sql) no lugar da demonstração.
 set -e
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
-export PGHOST=${PGHOST:-/home/claude/.pgtest} PGPORT=${PGPORT:-54329} PGUSER=${PGUSER:-postgres}
+export PGHOST=${PGHOST:-localhost} PGPORT=${PGPORT:-5432} PGUSER=${PGUSER:-postgres}
 psql -q -c 'drop database if exists dev with (force)' -c 'create database dev'
-for f in supabase/tests/00_supabase_stub.sql supabase/schema.sql supabase/storage.sql supabase/seed_demo.sql; do
+SEED_FILE=supabase/seed_demo.sql
+[ "${SEED:-}" = "domingos" ] && SEED_FILE=supabase/seed_domingos.sql
+for f in supabase/tests/00_supabase_stub.sql supabase/schema.sql supabase/storage.sql "$SEED_FILE"; do
   psql -q -v ON_ERROR_STOP=1 -d dev -f "$DIR/$f"
 done
 # Número FICTÍCIO só para o teste local abrir o link; nunca vai para produção.
-psql -q -d dev -c "update store_settings set whatsapp_number = '5511900000000'"
+[ "$SEED_FILE" = supabase/seed_demo.sql ] && psql -q -d dev -c "update store_settings set whatsapp_number = '5511900000000'"
 # Usuários do login falso (dev/mock-auth.mjs): um admin e um cliente comum
 psql -q -d dev -c "insert into auth.users (id, email) values
   ('11111111-1111-1111-1111-111111111111','admin@teste.local'),

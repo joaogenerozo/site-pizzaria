@@ -1,5 +1,5 @@
 // Servidor de login FALSO, só para testes locais. Imita os endpoints do
-// Supabase Auth usados pelo painel (/auth/v1/token, /user, /logout).
+// Supabase Auth usados pelo painel (/auth/v1/token, /user, /recover, /logout).
 // Em produção quem faz isso é o próprio Supabase.
 import { createServer } from 'node:http';
 import { signJwt } from './make-jwt.mjs';
@@ -43,6 +43,17 @@ createServer(async (req, res) => {
     const payload = JSON.parse(Buffer.from(token.split('.')[1] || 'e30', 'base64url').toString());
     const entry = Object.entries(USERS).find(([, u]) => u.id === payload.sub);
     return entry ? send(res, 200, userObj(entry[0], entry[1])) : send(res, 401, { msg: 'invalid token' });
+  }
+  // "Esqueci minha senha": o Supabase mandaria o e-mail; aqui só responde OK
+  if (req.method === 'POST' && url.pathname === '/auth/v1/recover') return send(res, 200, {});
+  // Troca de senha pelo link do e-mail (não altera USERS, para não afetar os outros testes)
+  if (req.method === 'PUT' && url.pathname === '/auth/v1/user') {
+    const token = (req.headers.authorization || '').replace(/^Bearer /, '');
+    const payload = JSON.parse(Buffer.from(token.split('.')[1] || 'e30', 'base64url').toString());
+    const entry = Object.entries(USERS).find(([, u]) => u.id === payload.sub);
+    if (!entry) return send(res, 401, { msg: 'invalid token' });
+    if (String(body.password || '').length < 8) return send(res, 422, { code: 'weak_password', msg: 'Password should be at least 8 characters.' });
+    return send(res, 200, userObj(entry[0], entry[1]));
   }
   if (req.method === 'POST' && url.pathname === '/auth/v1/logout') { res.writeHead(204); return res.end(); }
   send(res, 404, { msg: 'not found (mock)' });

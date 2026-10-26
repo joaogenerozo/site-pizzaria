@@ -21,18 +21,30 @@ const TABS = [
   ['loja', 'Dados da loja', settingsView],
 ];
 
+// Link do e-mail "esqueci minha senha": o Supabase volta para /admin/ com
+// #access_token=…&type=recovery (ou #error=… se o link expirou). Lido antes de
+// o supabase-js limpar o endereço.
+const urlHash = new URLSearchParams(location.hash.slice(1));
+const recoveryLink = urlHash.get('type') === 'recovery';
+const linkError = urlHash.get('error_code') === 'otp_expired' || urlHash.has('error')
+  ? 'Este link de redefinição expirou ou já foi usado. Peça um novo em “Esqueci minha senha”.'
+  : '';
+if (linkError) history.replaceState(null, '', location.pathname);
+
 if (configError) {
   root.append(h('div', { class: 'adm-center' }, h('p', { class: 'errors' }, configError)));
 } else {
   supabase.auth.onAuthStateChange((event) => {
     if (event === 'SIGNED_OUT') renderLogin();
+    if (event === 'PASSWORD_RECOVERY') renderNewPassword();
   });
   start();
 }
 
 async function start() {
   const { data } = await supabase.auth.getSession();
-  if (!data.session) return renderLogin();
+  if (!data.session) return renderLogin(linkError);
+  if (recoveryLink) return renderNewPassword();
   await enter();
 }
 
@@ -47,6 +59,7 @@ function renderLogin(message = '') {
     h('label', { class: 'field-label', for: 'login-email' }, 'E-mail'), email,
     h('label', { class: 'field-label', for: 'login-password' }, 'Senha'), password,
     error, btn,
+    h('button', { class: 'link-btn', type: 'button', id: 'forgot', onclick: () => renderForgot(email.value.trim()) }, 'Esqueci minha senha'),
     h('p', { class: 'adm-help' }, 'Acesso restrito aos administradores cadastrados no banco.'));
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -65,6 +78,76 @@ function renderLogin(message = '') {
   });
   clear(root).append(h('div', { class: 'adm-center' }, form));
   email.focus();
+}
+
+// Pede ao Supabase o e-mail com o link para criar uma senha nova
+function renderForgot(prefill = '') {
+  const email = h('input', { class: 'input', id: 'forgot-email', type: 'email', autocomplete: 'username', required: true, value: prefill || null });
+  const msg = h('p', { role: 'status', hidden: true });
+  const btn = h('button', { class: 'btn', type: 'submit', id: 'forgot-submit' }, 'Enviar link');
+  const form = h('form', { class: 'adm-login', novalidate: true },
+    h('h1', {}, 'Redefinir senha'),
+    h('p', { class: 'adm-help' }, 'Informe o e-mail de administrador. Enviaremos um link para você criar uma senha nova.'),
+    h('label', { class: 'field-label', for: 'forgot-email' }, 'E-mail'), email,
+    msg, btn,
+    h('button', { class: 'link-btn', type: 'button', onclick: () => renderLogin() }, 'Voltar para o login'));
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const value = email.value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) { msg.hidden = false; msg.className = 'errors'; msg.textContent = 'Informe um e-mail válido.'; return; }
+    btn.disabled = true; btn.textContent = 'Enviando…';
+    const { error } = await supabase.auth.resetPasswordForEmail(value, { redirectTo: location.origin + location.pathname });
+    btn.disabled = false; btn.textContent = 'Enviar link';
+    msg.hidden = false;
+    if (error && !/not found|user/i.test(error.message)) {
+      msg.className = 'errors';
+      msg.textContent = /rate|seconds/i.test(error.message)
+        ? 'Muitos pedidos seguidos. Aguarde alguns minutos e tente de novo.'
+        : `Não foi possível enviar: ${error.message}`;
+      return;
+    }
+    // Mesma resposta para e-mail cadastrado ou não (não revela quem é administrador)
+    msg.className = 'notice';
+    msg.textContent = 'Se este e-mail tiver acesso ao painel, o link chega em alguns minutos. Confira também o spam.';
+  });
+  clear(root).append(h('div', { class: 'adm-center' }, form));
+  email.focus();
+}
+
+// Aberto pelo link do e-mail: a pessoa já está autenticada só para trocar a senha
+function renderNewPassword() {
+  if (document.getElementById('new-password')) return;
+  const password = h('input', { class: 'input', id: 'new-password', type: 'password', autocomplete: 'new-password', minlength: 8, required: true });
+  const confirmPw = h('input', { class: 'input', id: 'new-password-2', type: 'password', autocomplete: 'new-password', minlength: 8, required: true });
+  const error = h('p', { class: 'errors', role: 'alert', hidden: true });
+  const btn = h('button', { class: 'btn', type: 'submit', id: 'new-password-submit' }, 'Salvar nova senha');
+  const form = h('form', { class: 'adm-login', novalidate: true },
+    h('h1', {}, 'Criar senha nova'),
+    h('label', { class: 'field-label', for: 'new-password' }, 'Nova senha (mínimo 8 caracteres)'), password,
+    h('label', { class: 'field-label', for: 'new-password-2' }, 'Repita a nova senha'), confirmPw,
+    error, btn);
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    error.hidden = false;
+    if (password.value.length < 8) { error.textContent = 'A senha precisa ter pelo menos 8 caracteres.'; return; }
+    if (password.value !== confirmPw.value) { error.textContent = 'As duas senhas não são iguais.'; return; }
+    error.hidden = true;
+    btn.disabled = true; btn.textContent = 'Salvando…';
+    const { error: err } = await supabase.auth.updateUser({ password: password.value });
+    if (err) {
+      btn.disabled = false; btn.textContent = 'Salvar nova senha';
+      error.hidden = false;
+      error.textContent = /different|same/i.test(err.message) ? 'A senha nova precisa ser diferente da anterior.'
+        : /weak|least|characters/i.test(err.message) ? 'Senha fraca. Use pelo menos 8 caracteres, misturando letras e números.'
+          : `Não foi possível salvar: ${err.message}`;
+      return;
+    }
+    history.replaceState(null, '', location.pathname);
+    notify('Senha alterada.');
+    await enter();
+  });
+  clear(root).append(h('div', { class: 'adm-center' }, form));
+  password.focus();
 }
 
 async function enter() {

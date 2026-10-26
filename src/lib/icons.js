@@ -16,6 +16,8 @@ const ICONS = {
   phone: stroke('<path d="M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 5a2 2 0 0 1 2-2Z"/>'),
   minus: stroke('<path d="M5 12h14"/>'),
   plus: stroke('<path d="M12 5v14M5 12h14"/>'),
+  left: stroke('<path d="m15 18-6-6 6-6"/>'),
+  right: stroke('<path d="m9 18 6-6-6-6"/>'),
 };
 
 export function icon(name) {

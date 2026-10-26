@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { execSync } from 'node:child_process';
+import { signJwt } from '../../dev/make-jwt.mjs';
 
 // Usa o login falso de dev/mock-auth.mjs e o banco local recém-criado.
 const ADMIN = ['admin@teste.local', 'senha-admin-local'];
@@ -35,6 +36,37 @@ test('12. sem login o painel só mostra a tela de entrada', async ({ page }) => 
 test('13. login com senha errada é recusado', async ({ page }) => {
   await login(page, [ADMIN[0], 'errada']);
   await expect(page.locator('.errors')).toHaveText('E-mail ou senha incorretos.');
+});
+
+test('esqueci minha senha: pede o link sem revelar se o e-mail existe', async ({ page }) => {
+  await page.goto('/admin/');
+  await page.fill('#login-email', ADMIN[0]);
+  await page.click('#forgot');
+  await expect(page.locator('#forgot-email')).toHaveValue(ADMIN[0]);
+  await page.click('#forgot-submit');
+  await expect(page.locator('.adm-login [role=status]')).toContainText('o link chega em alguns minutos');
+  await page.getByRole('button', { name: 'Voltar para o login' }).click();
+  await expect(page.locator('#login-email')).toBeVisible();
+});
+
+test('link do e-mail abre a tela de senha nova e depois entra no painel', async ({ page }) => {
+  const token = signJwt({ sub: '11111111-1111-1111-1111-111111111111', role: 'authenticated', email: ADMIN[0], aud: 'authenticated' });
+  await page.goto(`/admin/#access_token=${token}&refresh_token=refresh-${ADMIN[0]}&expires_in=3600&expires_at=${Math.floor(Date.now() / 1000) + 3600}&token_type=bearer&type=recovery`);
+  await expect(page.locator('#new-password')).toBeVisible();
+  await page.fill('#new-password', 'nova-senha-123');
+  await page.fill('#new-password-2', 'outra-coisa-123');
+  await page.click('#new-password-submit');
+  await expect(page.locator('.errors')).toHaveText('As duas senhas não são iguais.');
+  await page.fill('#new-password-2', 'nova-senha-123');
+  await page.click('#new-password-submit');
+  await expect(page.locator('.adm-table').first()).toBeVisible();
+  expect(page.url()).not.toContain('access_token');
+});
+
+test('link de redefinição expirado volta ao login com aviso', async ({ page }) => {
+  await page.goto('/admin/#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired');
+  await expect(page.locator('.errors')).toContainText('expirou');
+  await expect(page.locator('#login-email')).toBeVisible();
 });
 
 test('13. usuário logado que não é admin não entra no painel', async ({ page }) => {
