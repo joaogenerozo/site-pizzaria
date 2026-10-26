@@ -78,7 +78,9 @@ a { color: var(--blue); }
 .hero-inner { position: relative; padding: 28px 16px 22px; display: grid; gap: 14px; }
 /* Faixa com a marca no topo: mesma cor do fundo da imagem, de ponta a ponta */
 .brand-banner { position: relative; background: #04132c; padding: 14px 16px 8px; border-bottom: 1px solid rgba(255, 255, 255, .12); }
-.brand-banner img { display: block; width: 100%; max-width: 560px; height: auto; margin: 0 auto; }
+.brand-lockup { display: flex; align-items: center; justify-content: center; gap: clamp(6px, 2vw, 14px); max-width: 680px; margin: 0 auto; }
+.brand-symbol { flex: none; width: auto; height: clamp(58px, 17vw, 112px); }
+.brand-wordmark { flex: 0 1 auto; min-width: 0; width: 100%; max-width: 540px; height: auto; }
 .brand-banner + .hero-inner { padding-top: 16px; }
 .brand-row { display: flex; align-items: center; gap: 14px; }
 .logo {

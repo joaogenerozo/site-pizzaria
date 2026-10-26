@@ -10,7 +10,8 @@ import { priceItem } from '../lib/pricing.js';
 import { createCart } from '../lib/cart.js';
 import { openProductModal } from './productModal.js';
 import { openCartDrawer } from './cartDrawer.js';
-import brandImage from '../assets/marca-domingos.jpg';
+import brandImage from '../assets/marca-domingos.png';
+import brandSymbol from '../assets/simbolo-domingos.png';
 
 const app = document.getElementById('app');
 export const cart = createCart();
@@ -94,10 +95,10 @@ function renderHero() {
   const title = h('h1', { class: 'brand-name sr-only' }, s.name);
   const roundLogo = s.logo_url ? h('img', { class: 'logo', src: s.logo_url, alt: `Logo ${s.name}`, hidden: true })
     : h('div', { class: 'logo', 'aria-hidden': 'true', hidden: true }, pizzaArt());
-  const banner = h('div', { class: 'brand-banner' }, h('img', {
-    src: brandImage, alt: '', width: 828, height: 185, fetchpriority: 'high',
-    onerror: () => { banner.remove(); title.classList.remove('sr-only'); roundLogo.hidden = false; },
-  }));
+  const fallback = () => { banner.remove(); title.classList.remove('sr-only'); roundLogo.hidden = false; };
+  const banner = h('div', { class: 'brand-banner' }, h('div', { class: 'brand-lockup' },
+    h('img', { class: 'brand-symbol', src: brandSymbol, alt: '', width: 210, height: 220, onerror: (e) => e.target.remove() }),
+    h('img', { class: 'brand-wordmark', src: brandImage, alt: '', width: 643, height: 181, fetchpriority: 'high', onerror: fallback })));
   const hero = h('header', { class: `hero${s.cover_url ? ' has-cover' : ''}` },
     banner,
     h('div', { class: 'wrap hero-inner' },
