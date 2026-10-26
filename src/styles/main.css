@@ -430,8 +430,9 @@ select.input { appearance: auto; }
    Vermelho puro sobre azul fica ilegível (contraste 2:1), então o vermelho
    aparece como fundo (botões, etiquetas, preço promocional) com letra branca.
    As janelas (pizza, carrinho, informações) continuam brancas para os
-   formulários ficarem fáceis de ler e preencher. */
-body {
+   formulários ficarem fáceis de ler e preencher.
+   O painel (/admin/, body.adm) usa este mesmo CSS mas continua claro. */
+body:not(.adm) {
   --bg: #0b2a6f;
   --card: #143a8c;
   --ink: #ffffff;
@@ -460,7 +461,7 @@ dialog.sheet {
 .card:hover { border-color: rgba(255, 255, 255, .45); box-shadow: 0 10px 30px rgba(0, 0, 0, .3); }
 .price-promo { background: var(--brand); color: #fff; padding: 1px 8px; border-radius: 6px; }
 .badge { background: #fff; color: var(--navy); }
-.btn-ghost:hover { background: rgba(255, 255, 255, .12); }
+body:not(.adm) .btn-ghost:hover { background: rgba(255, 255, 255, .12); }
 dialog.sheet .btn-ghost:hover { background: var(--blue-soft); }
 .skeleton { background: linear-gradient(90deg, #143a8c 25%, #1b4699 50%, #143a8c 75%) 0 0 / 200% 100%; }
 .toast { background: #0f1b33; border: 1px solid rgba(255, 255, 255, .25); }
