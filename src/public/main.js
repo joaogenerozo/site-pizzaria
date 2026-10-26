@@ -117,13 +117,29 @@ function renderToolbar() {
   });
   clearBtn.addEventListener('click', () => { input.value = ''; query = ''; clearBtn.hidden = true; renderMenu(); input.focus(); });
 
+  const nav = h('nav', { class: 'cat-nav', id: 'cat-nav', 'aria-label': 'Categorias' },
+    catalog.categories.map((c) => h('a', {
+      class: 'cat-link', href: `#cat-${c.id}`, dataset: { cat: c.id },
+      onclick: (e) => { e.preventDefault(); scrollToCategory(c.id); },
+    }, c.name)));
+  // Setas para quem usa mouse: rolar a barra de lado com a roda é difícil
+  const arrow = (dir) => h('button', {
+    type: 'button', class: 'cat-arrow', 'aria-hidden': 'true', tabindex: '-1',
+    onclick: () => nav.scrollBy({ left: dir * nav.clientWidth * 0.7, behavior: 'smooth' }),
+  }, icon(dir < 0 ? 'left' : 'right'));
+  const prev = arrow(-1);
+  const next = arrow(1);
+  const updateArrows = () => {
+    prev.disabled = nav.scrollLeft <= 1;
+    next.disabled = nav.scrollLeft + nav.clientWidth >= nav.scrollWidth - 1;
+  };
+  nav.addEventListener('scroll', updateArrows, { passive: true });
+  window.addEventListener('resize', updateArrows);
+  requestAnimationFrame(updateArrows);
+
   return h('div', { class: 'toolbar' }, h('div', { class: 'wrap' },
     h('div', { class: 'search', role: 'search' }, icon('search'), input, clearBtn),
-    h('nav', { class: 'cat-nav', id: 'cat-nav', 'aria-label': 'Categorias' },
-      catalog.categories.map((c) => h('a', {
-        class: 'cat-link', href: `#cat-${c.id}`, dataset: { cat: c.id },
-        onclick: (e) => { e.preventDefault(); scrollToCategory(c.id); },
-      }, c.name)))));
+    h('div', { class: 'cat-row' }, prev, nav, next)));
 }
 
 function scrollToCategory(id) {
@@ -178,19 +194,20 @@ function productCard(p, category) {
   }
   const qtyHint = p.qtyPromoMin ? `A partir de ${p.qtyPromoMin} un.: ${formatCents(p.qtyPromoCents)} cada` : null;
 
-  return h('button', {
-    type: 'button', class: 'card', dataset: { product: p.id },
-    'aria-label': p.fromCents === null ? `${p.name}, preço em confirmação`
-      : sizePrices?.length ? `${p.name}, ${sizePrices.map((el) => el.textContent).join(', ')}`
-        : `${p.name}, ${p.kind === 'pizza' ? 'a partir de ' : ''}${formatCents(p.fromCents)}`,
-    onclick: () => openProductModal({
-      catalog, productId: p.id, categoryName: category.name,
-      onConfirm: (sel) => { cart.add(sel); toast(`${p.name} adicionado ao carrinho`); },
-    }),
-  },
+  // Card = artigo com título; o botão fica no título e cobre o card inteiro (ver .card-open no CSS)
+  return h('article', { class: 'card', dataset: { product: p.id } },
   h('div', { class: 'card-body' },
     p.badge ? h('span', { class: `badge${hasPromo || /promo/i.test(p.badge) ? ' promo' : ''}` }, p.badge) : null,
-    h('h3', { class: 'card-name' }, p.name),
+    h('h3', { class: 'card-name' }, h('button', {
+      type: 'button', class: 'card-open',
+      'aria-label': p.fromCents === null ? `${p.name}, preço em confirmação`
+        : sizePrices?.length ? `${p.name}, ${sizePrices.map((el) => el.textContent).join(', ')}`
+          : `${p.name}, ${p.kind === 'pizza' ? 'a partir de ' : ''}${formatCents(p.fromCents)}`,
+      onclick: () => openProductModal({
+        catalog, productId: p.id, categoryName: category.name,
+        onConfirm: (sel) => { cart.add(sel); toast(`${p.name} adicionado ao carrinho`); },
+      }),
+    }, p.name)),
     p.description ? h('p', { class: 'card-desc' }, p.description) : null,
     pizzaHint ? h('span', { class: 'card-hint' }, pizzaHint) : null,
     qtyHint ? h('span', { class: 'card-hint' }, qtyHint) : null,

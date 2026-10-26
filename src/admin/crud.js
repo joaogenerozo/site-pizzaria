@@ -3,6 +3,10 @@ import { icon } from '../lib/icons.js';
 import { supabase } from '../lib/supabase.js';
 import { parseField, displayValue, renderField, friendlyDbError } from './fields.js';
 import { notify } from './ui.js';
+import { BUCKET, shrinkImage, removeUnusedImages } from './images.js';
+
+// URLs de imagem de um registro (image_url, logo_url…); as de fora do bucket são ignoradas depois
+const imageUrls = (row) => Object.entries(row ?? {}).filter(([k, v]) => /_url$/.test(k) && v).map(([, v]) => v);
 
 // Lista com criar/editar/excluir/ativar/ordenar para uma tabela.
 // cfg: { table, title, intro, fields, columns, activeKey, orderKey, defaults,
@@ -73,6 +77,7 @@ export function crudView(cfg) {
     const { error } = await supabase.from(cfg.table).delete().eq('id', row.id);
     if (error) return notify(friendlyDbError(error), 'error');
     notify('Excluído.');
+    removeUnusedImages(imageUrls(row));
     await load(); cfg.onChange?.();
   }
 
@@ -87,6 +92,7 @@ export function crudView(cfg) {
     }
     const fields = typeof cfg.fields === 'function' ? await cfg.fields() : cfg.fields;
     const controls = new Map();
+    const uploaded = []; // fotos enviadas nesta janela; as que não forem salvas são apagadas
     const formBody = h('div', { class: 'adm-form' });
     const errorBox = h('p', { class: 'errors', role: 'alert', hidden: true });
 
@@ -100,7 +106,7 @@ export function crudView(cfg) {
       const c = renderField(f, f.type === 'multi' ? values[f.key] : displayValue(f, values[f.key]));
       controls.set(f.key, c);
       formBody.append(c.el);
-      if (f.type === 'image') formBody.append(imageUploader(c));
+      if (f.type === 'image') formBody.append(imageUploader(c, uploaded));
       c.control.addEventListener?.('change', refreshVisibility);
     }
 
@@ -159,14 +165,18 @@ export function crudView(cfg) {
           if (e) linkError ??= e;
         }
       }
+      // foto antiga trocada e fotos enviadas mas descartadas nesta janela
+      const replaced = [...uploaded, ...imageUrls(row)];
+      uploaded.length = 0;
       dialog.close();
+      removeUnusedImages(replaced);
       // Erro nas ligações não pode ser escondido pelo "Salvo." (ex.: pizza sem tamanho some do cardápio)
       if (linkError) notify(`O cadastro foi salvo, mas as opções marcadas (tamanhos, sabores ou adicionais) não foram gravadas. Abra e salve de novo. ${friendlyDbError(linkError)}`, 'error');
       else notify('Salvo.');
       await load(); cfg.onChange?.();
     }
 
-    dialog.addEventListener('close', () => dialog.remove());
+    dialog.addEventListener('close', () => { dialog.remove(); removeUnusedImages(uploaded); });
     document.body.append(dialog);
     refreshVisibility();
     dialog.showModal();
@@ -177,7 +187,7 @@ export function crudView(cfg) {
 }
 
 // Envio de imagem para o Storage (bucket menu-images). Só admins conseguem (RLS).
-function imageUploader(urlControl) {
+function imageUploader(urlControl, uploaded) {
   const file = h('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp', class: 'sr-only', id: `up-${Math.random().toString(36).slice(2)}` });
   const status = h('small', { class: 'adm-help' });
   const preview = h('img', { class: 'adm-preview', alt: '', hidden: !urlControl.control.value });
@@ -189,14 +199,19 @@ function imageUploader(urlControl) {
   file.addEventListener('change', async () => {
     const f = file.files[0];
     if (!f) return;
+    file.value = '';
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) { status.textContent = 'Use JPG, PNG ou WEBP.'; return; }
-    if (f.size > 2 * 1024 * 1024) { status.textContent = 'Imagem maior que 2 MB. Reduza antes de enviar.'; return; }
+    status.textContent = 'Preparando a imagem…';
+    let blob;
+    try { blob = await shrinkImage(f); } catch (e) { status.textContent = e.message; return; }
+    if (blob.size > 2 * 1024 * 1024) { status.textContent = 'Mesmo reduzida, a imagem passou de 2 MB. Tente outra foto.'; return; }
     status.textContent = 'Enviando…';
-    const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[f.type];
+    const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[blob.type];
     const path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;
-    const { error } = await supabase.storage.from('menu-images').upload(path, f, { contentType: f.type, upsert: false });
+    const { error } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: blob.type, upsert: false });
     if (error) { status.textContent = friendlyDbError(error); return; }
-    const { data } = supabase.storage.from('menu-images').getPublicUrl(path);
+    const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+    uploaded.push(data.publicUrl);
     urlControl.control.value = data.publicUrl;
     urlControl.control.dispatchEvent(new Event('change'));
     status.textContent = 'Imagem enviada.';

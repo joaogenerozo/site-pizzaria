@@ -7,7 +7,9 @@ Marque cada item **no site publicado**, num celular e num computador.
 - [ ] `schema.sql` e `storage.sql` executados sem erro.
 - [ ] Todas as tabelas com "RLS enabled".
 - [ ] Cadastro público de usuários **desligado**.
-- [ ] Primeiro administrador criado e inserido em `public.admins`.
+- [ ] Dois administradores criados e inseridos em `public.admins`.
+- [ ] Site URL e Redirect URLs (`…/admin/`) preenchidos em Authentication → URL Configuration.
+- [ ] Variáveis `SUPABASE_URL` e `SUPABASE_ANON_KEY` criadas no GitHub (tarefa "Supabase ativo", README passo 10).
 - [ ] Nenhuma chave `service_role`/secret em arquivos do site ou do repositório.
 
 ## Dados reais
@@ -23,9 +25,10 @@ Marque cada item **no site publicado**, num celular e num computador.
 
 ## Publicação
 - [ ] `npm run build` com `.env.production.local` do projeto real (incluindo `VITE_SITE_URL` com o domínio final).
-- [ ] Conteúdo de `dist/` (com `.htaccess`) em `public_html`.
 - [ ] Domínio apontando para a Hostinger.
-- [ ] SSL ativo; `http://` redireciona para `https://`.
+- [ ] SSL ativo **antes** de enviar os arquivos.
+- [ ] Conteúdo de `dist/` (com `.htaccess`) em `public_html`.
+- [ ] `http://` redireciona para `https://`.
 - [ ] Site URL do Supabase = domínio final.
 
 ## Testes no site publicado
@@ -36,6 +39,7 @@ Marque cada item **no site publicado**, num celular e num computador.
 - [ ] Total da mensagem confere com o total da revisão.
 - [ ] `/admin/` sem login mostra só a tela de entrada.
 - [ ] Login de administrador funciona; conta não administradora vê "Sem permissão".
+- [ ] "Esqueci minha senha" envia o e-mail e o link abre a tela de senha nova no painel.
 - [ ] Alterar um preço no painel e ver a mudança no cardápio.
 - [ ] Enviar uma foto pelo painel e vê-la no cardápio.
 - [ ] Pausar pedidos ("Aceitando pedidos agora") mostra o aviso no carrinho e bloqueia o "Continuar".

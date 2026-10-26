@@ -91,8 +91,8 @@
       { "nome": "Doce Delírio", "ingredientes": "Chocolate branco, chocolate preto, uvas verdes, morango e sonho de valsa branco", "precos": { "P": 50.00, "M": 60.00, "G": 70.00 } },
       { "nome": "Moça", "ingredientes": "Creme de leite moça com leite em pó, morangos e raspas de lima", "precos": { "P": 50.00, "M": 60.00, "G": 70.00 } },
       { "nome": "Banana Nevada", "ingredientes": "Bananas fatiadas com chocolate branco", "precos": { "P": 45.00, "M": 55.00, "G": 63.00 } },
-      { "nome": "Banana Tradicional", "ingredientes": "Bananas fatiadas com mussarela, caneça e açúcar", "precos": { "P": 45.00, "M": 55.00, "G": 65.00 },
-        "conferir_texto": "\"caneça\" está assim no cardápio; provavelmente é \"canela\". Mantido como está até confirmação." },
+      { "nome": "Banana Tradicional", "ingredientes": "Bananas fatiadas com mussarela, canela e açúcar", "precos": { "P": 45.00, "M": 55.00, "G": 65.00 },
+        "conferir_texto": "No cardápio impresso está \"caneça\"; corrigido para \"canela\". Se a pizzaria usar outro ingrediente, ajuste pelo painel." },
       { "nome": "Romeu e Julieta", "ingredientes": "Mussarela com goiaba", "precos": { "P": 45.00, "M": 55.00, "G": 65.00 } }
     ]}
   ],

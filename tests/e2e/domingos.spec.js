@@ -20,8 +20,8 @@ test('cardápio real: 11 categorias, 51 sabores e preços por tamanho', async ({
   await page.goto('/');
   await expect(page.locator('.section-title')).toHaveCount(11);
   await expect(page.locator('.card')).toHaveCount(51);
-  await expect(card(page, 'Calabresa')).toHaveAttribute('aria-label', 'Calabresa, P R$ 37,00, M R$ 45,00, G R$ 55,00');
-  await expect(card(page, 'Júlia')).toHaveAttribute('aria-label', /G R\$ 65,90/);
+  await expect(card(page, 'Calabresa').locator('.card-open')).toHaveAttribute('aria-label', 'Calabresa, P R$ 37,00, M R$ 45,00, G R$ 55,00');
+  await expect(card(page, 'Júlia').locator('.card-open')).toHaveAttribute('aria-label', /G R\$ 65,90/);
   for (const name of ['Lombo', 'Mussarela', 'Milho Especial', 'Frango Barbecue']) {
     await expect(card(page, name)).toContainText('Preço em confirmação');
   }
@@ -58,7 +58,7 @@ test('15. admin confirma o preço do Lombo e o cardápio passa a aceitar o pedid
 
   // persiste no banco: outra página (visitante) já vê o preço confirmado
   await page.goto('/');
-  await expect(card(page, 'Lombo')).toHaveAttribute('aria-label', 'Lombo, P R$ 40,00, M R$ 45,00, G R$ 55,90');
+  await expect(card(page, 'Lombo').locator('.card-open')).toHaveAttribute('aria-label', 'Lombo, P R$ 40,00, M R$ 45,00, G R$ 55,90');
   await card(page, 'Lombo').click();
   await page.locator('label.opt', { hasText: /^P/ }).first().click();
   await page.locator('.sheet-foot .btn').click({ force: true });

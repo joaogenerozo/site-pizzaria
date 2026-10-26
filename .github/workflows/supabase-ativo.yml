@@ -1,0 +1,37 @@
+# Mantém o Supabase gratuito acordado e confere se o cardápio responde.
+# O plano grátis pausa o projeto depois de 7 dias sem uso, e aí o cardápio sai do ar.
+# Configure em Settings > Secrets and variables > Actions > Variables:
+#   SUPABASE_URL       ex.: https://abcdefgh.supabase.co
+#   SUPABASE_ANON_KEY  a chave publicável (anon), a mesma do .env.production.local
+# Sem as variáveis, o teste só avisa e termina sem erro.
+name: Supabase ativo
+
+on:
+  schedule:
+    - cron: '17 11 * * 1,4' # segundas e quintas, 08:17 em Brasília
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Consulta os dados da loja
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::notice::Variáveis SUPABASE_URL e SUPABASE_ANON_KEY ainda não configuradas; nada a fazer."
+            exit 0
+          fi
+          status=$(curl -sS -o resposta.json -w '%{http_code}' --retry 3 --retry-delay 20 \
+            -H "apikey: $SUPABASE_ANON_KEY" -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            "${SUPABASE_URL%/}/rest/v1/store_settings?select=name,accepting_orders")
+          echo "HTTP $status"; cat resposta.json; echo
+          if [ "$status" != "200" ]; then
+            echo "::error::O Supabase não respondeu (HTTP $status). Se o projeto estiver pausado, entre em supabase.com e clique em Restore."
+            exit 1
+          fi

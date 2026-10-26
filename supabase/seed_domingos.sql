@@ -103,7 +103,7 @@ insert into public.pizza_flavors (name, description, price_review, sort_order) v
   ('Doce Delírio', 'Chocolate branco, chocolate preto, uvas verdes, morango e sonho de valsa branco', false, 47),
   ('Moça', 'Creme de leite moça com leite em pó, morangos e raspas de lima', false, 48),
   ('Banana Nevada', 'Bananas fatiadas com chocolate branco', false, 49),
-  ('Banana Tradicional', 'Bananas fatiadas com mussarela, caneça e açúcar', false, 50),
+  ('Banana Tradicional', 'Bananas fatiadas com mussarela, canela e açúcar', false, 50),
   ('Romeu e Julieta', 'Mussarela com goiaba', false, 51);
 
 insert into public.flavor_prices (flavor_id, size_id, price)
@@ -317,7 +317,7 @@ select c.id, 'pizza', v.name, v.description, v.ord from (values
   ('Pizzas doces', 'Doce Delírio', 'Chocolate branco, chocolate preto, uvas verdes, morango e sonho de valsa branco', 2),
   ('Pizzas doces', 'Moça', 'Creme de leite moça com leite em pó, morangos e raspas de lima', 3),
   ('Pizzas doces', 'Banana Nevada', 'Bananas fatiadas com chocolate branco', 4),
-  ('Pizzas doces', 'Banana Tradicional', 'Bananas fatiadas com mussarela, caneça e açúcar', 5),
+  ('Pizzas doces', 'Banana Tradicional', 'Bananas fatiadas com mussarela, canela e açúcar', 5),
   ('Pizzas doces', 'Romeu e Julieta', 'Mussarela com goiaba', 6)
 ) as v(cat, name, description, ord)
 join public.categories c on c.name = v.cat;

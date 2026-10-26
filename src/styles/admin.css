@@ -9,6 +9,8 @@ body.adm { background: #eef2f9; }
 .adm-login h1 { font: 800 24px/1.2 var(--font-display); margin: 10px 0 8px; }
 .adm-login .logo { width: 56px; height: 56px; background: var(--blue-soft); border: 0; }
 .adm-login .btn { margin-top: 14px; }
+.adm-login .link-btn { justify-self: center; margin-top: 10px; padding: 8px; }
+.adm-login .notice { margin: 10px 0 0; }
 
 .adm-top {
   display: flex; justify-content: space-between; align-items: center;

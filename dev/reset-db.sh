@@ -1,9 +1,10 @@
 #!/bin/bash
-# Recria o banco local "dev". Variáveis PGHOST/PGPORT/PGUSER apontam para o Postgres local.
+# Recria o banco local "dev". Variáveis PGHOST/PGPORT/PGUSER/PGPASSWORD apontam para o Postgres local
+# (padrão: localhost:5432, usuário postgres).
 # SEED=domingos carrega o cardápio real (supabase/seed_domingos.sql) no lugar da demonstração.
 set -e
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
-export PGHOST=${PGHOST:-/home/claude/.pgtest} PGPORT=${PGPORT:-54329} PGUSER=${PGUSER:-postgres}
+export PGHOST=${PGHOST:-localhost} PGPORT=${PGPORT:-5432} PGUSER=${PGUSER:-postgres}
 psql -q -c 'drop database if exists dev with (force)' -c 'create database dev'
 SEED_FILE=supabase/seed_demo.sql
 [ "${SEED:-}" = "domingos" ] && SEED_FILE=supabase/seed_domingos.sql

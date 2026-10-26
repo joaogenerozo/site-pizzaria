@@ -33,7 +33,10 @@ versão.
    **desligue "Allow new users to sign up"**. Assim ninguém cria conta sozinho.
    (Mesmo que crie, não vira administrador; isso só reduz lixo e abuso.)
 4. Em **Authentication → URL Configuration**, coloque em **Site URL** o
-   endereço do site (ex.: `https://www.suapizzaria.com.br`).
+   endereço do site (ex.: `https://www.suapizzaria.com.br`) e, em
+   **Redirect URLs**, adicione o endereço do painel
+   (ex.: `https://www.suapizzaria.com.br/admin/`). É para lá que volta o link
+   do e-mail de "Esqueci minha senha".
 
 ## 2. Executar o SQL do banco (tabelas + RLS)
 
@@ -77,6 +80,9 @@ propósito**.
    ```
 
 Para remover um administrador: `delete from public.admins where user_id = '…';`.
+Cadastre **dois administradores** (por exemplo, o dono e um funcionário de
+confiança). Quem esquecer a senha usa **"Esqueci minha senha"** na tela de
+login do painel e recebe um link por e-mail para criar outra.
 Administradores **não** conseguem promover ninguém pelo site. Só quem tem
 acesso ao painel do Supabase consegue.
 
@@ -90,6 +96,8 @@ acesso ao painel do Supabase consegue.
 3. Desmarque **Modo demonstração** quando os dados forem reais.
 4. Cadastre categorias, produtos, tamanhos, sabores e preços por tamanho,
    bordas, adicionais, bairros/taxas, formas de pagamento e horários.
+   Fotos enviadas pelo painel são reduzidas automaticamente (até 1600 px) antes
+   do envio, e a foto antiga é apagada do Storage quando você troca ou exclui.
    Para trocar a demonstração pelos dados reais, rode o bloco
    "LIMPAR DEMONSTRAÇÃO" no fim de `supabase/seed_demo.sql`.
 
@@ -110,7 +118,7 @@ Também há um ambiente 100% local que imita o Supabase (PostgreSQL + PostgREST
 ```bash
 bash supabase/tests/run.sh                       # 82 testes de RLS e preço no banco
 LOCAL_ANON_KEY=$(node dev/make-jwt.mjs anon) \
-  npx playwright test                            # 46 testes no navegador (celular e desktop)
+  npx playwright test                            # 52 testes no navegador (celular e desktop)
 SEED=domingos bash dev/reset-db.sh               # abre o site local com o cardápio real
 ```
 
@@ -147,6 +155,10 @@ SEED=domingos bash dev/reset-db.sh               # abre o site local com o card�
 
 ## 7. Enviar para a Hostinger
 
+> **Ative o SSL antes de enviar** (passo 8.2). O `.htaccess` manda todo
+> visitante para `https://`; se o certificado ainda não existir, o site fica
+> inacessível até o SSL ficar pronto.
+
 1. hPanel → **Sites → Gerenciar → Gerenciador de Arquivos** → abra `public_html`.
 2. Apague a página padrão (`default.php`/`index.php`) se existir.
 3. Envie **o conteúdo** da pasta `dist/` (não a pasta em si), incluindo o
@@ -173,6 +185,22 @@ Siga [docs/CHECKLIST-LANCAMENTO.md](docs/CHECKLIST-LANCAMENTO.md). No mínimo:
 o cardápio carrega, um pedido de teste chega no WhatsApp da pizzaria, o
 `/admin/` pede login, uma alteração de preço aparece no site e não há erros
 no console do navegador (F12).
+
+## 10. Manter o Supabase ativo (plano grátis)
+
+O plano grátis do Supabase **pausa o projeto depois de 7 dias sem uso**, e aí
+o cardápio não carrega. Com clientes entrando todo dia isso não acontece, mas
+no começo pode acontecer. O repositório tem uma tarefa automática
+(`.github/workflows/supabase-ativo.yml`) que consulta o banco duas vezes por
+semana. Para ligá-la, no GitHub: **Settings → Secrets and variables →
+Actions → Variables → New repository variable** e crie:
+
+- `SUPABASE_URL` = a Project URL;
+- `SUPABASE_ANON_KEY` = a chave publicável (a mesma do site).
+
+Se o Supabase não responder, a tarefa falha e o GitHub manda um e-mail
+avisando. Se o projeto estiver pausado, entre em supabase.com e clique em
+**Restore project**.
 
 ## Limitação de segurança dos valores (importante)
 

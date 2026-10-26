@@ -42,8 +42,8 @@ preços** → em **Sabores**, clique em **Editar** no sabor e desmarque
 
 ### Para conferir, mas sem bloqueio
 
-- **Banana Tradicional:** o cardápio diz "mussarela, **caneça** e açúcar".
-  Provavelmente é "canela", mas o texto foi mantido como está.
+- **Banana Tradicional:** o cardápio impresso diz "mussarela, **caneça** e açúcar".
+  No site foi corrigido para "canela"; se for outro ingrediente, ajuste pelo painel.
 - **Frango com Catupiry:** P 50,90 · M 55,00 · G 57,00 (diferença pequena entre M e G).
 - **Siciliana:** G 59,00 (as outras terminam em ,90 ou ,00 redondo).
 

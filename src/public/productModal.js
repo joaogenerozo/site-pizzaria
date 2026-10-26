@@ -37,8 +37,8 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
     : h('div', { class: 'sheet-hero placeholder' }, illustration(product, categoryName));
 
   dialog.append(
+    // a imagem rola junto com as opções; só o botão de fechar fica fixo
     h('div', { class: 'sheet-head' },
-      image,
       h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Fechar', onclick: () => dialog.close() }, icon('close'))),
     body,
     h('div', { class: 'sheet-foot' }, h('div', { class: 'qty' }, minus, qtyOut, plus), confirmBtn),
@@ -55,6 +55,7 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
   counter.textContent = `${notes.value.length}/${MAX_NOTES}`;
 
   add(body,
+    image,
     h('h2', { class: 'sheet-title', id: 'pm-title' }, product.name),
     product.description ? h('p', { class: 'sheet-desc' }, product.description) : null,
     (product.kind === 'simple' && product.price_review) || (product.kind === 'pizza' && product.flavors.length === 1 && product.flavors[0].price_review)
