@@ -144,7 +144,8 @@ SEED=domingos bash dev/reset-db.sh               # abre o site local com o card�
    ├── index.html        cardápio
    ├── admin/index.html  painel
    ├── assets/           JS e CSS com hash no nome
-   ├── favicon.svg
+   ├── favicon.png       ícone da aba (símbolo da Domingo's)
+   ├── apple-touch-icon.png  ícone ao salvar o site na tela do celular
    ├── og-image.png      imagem da prévia do link
    └── .htaccess         HTTPS, cabeçalhos de segurança e cache
    ```

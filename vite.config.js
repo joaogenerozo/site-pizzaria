@@ -33,7 +33,9 @@ export default defineConfig(({ command, mode }) => {
   if (command === 'build' && (!env.VITE_SUPABASE_URL || !env.VITE_SUPABASE_ANON_KEY)) {
     throw new Error('Faltam VITE_SUPABASE_URL e/ou VITE_SUPABASE_ANON_KEY. Crie o arquivo .env.production.local (veja .env.example e o README, passo 6) antes de rodar npm run build.');
   }
-  const siteUrl = (env.VITE_SITE_URL || '').trim().replace(/\/+$/, '');
+  let siteUrl = (env.VITE_SITE_URL || '').trim().replace(/\/+$/, '');
+  // O exemplo do .env.example (seudominio.com.br) não é um endereço de verdade
+  if (siteUrl.includes('seudominio')) siteUrl = '';
   if (command === 'build' && !siteUrl) {
     console.warn('Aviso: VITE_SITE_URL não definido; o link compartilhado sairá sem imagem de prévia.');
   }

@@ -29,7 +29,7 @@ DirectoryIndex index.html
     Header set Cache-Control "public, max-age=31536000, immutable"
   </FilesMatch>
   # Arquivos sem hash no nome: cache curto, para uma troca aparecer em até 1 dia
-  <FilesMatch "^(favicon\.svg|og-image\.png)$">
+  <FilesMatch "^(favicon\.(svg|png)|apple-touch-icon\.png|og-image\.png)$">
     Header set Cache-Control "public, max-age=86400"
   </FilesMatch>
 </IfModule>
