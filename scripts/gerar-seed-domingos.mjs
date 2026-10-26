@@ -14,6 +14,8 @@ const money = (v) => {
 
 const loja = menu.estabelecimento;
 const sizes = menu.tamanhos;
+const meio = menu.meio_a_meio;
+if (!['maior', 'media'].includes(meio.regra_preco)) throw new Error(`Regra de meio a meio inválida: ${meio.regra_preco}`);
 const out = [];
 const w = (s = '') => out.push(s);
 
@@ -40,7 +42,7 @@ w('  min_order_value, multi_flavor_rule, is_demo)');
 w(`values (1, ${q(loja.nome)}, ${q(loja.slogan)},`);
 w(`  ${q(`Desde ${loja.desde}. ${loja.observacao} Telefones: ${loja.telefones.join(', ')}.`)},`);
 w(`  ${q(loja.whatsapp_principal)}, ${q(loja.telefone_exibido)}, ${q(loja.endereco)},`);
-w('  0, null, false)');
+w(`  0, ${q(meio.regra_preco)}, false)`);
 w('on conflict (id) do update set name = excluded.name, tagline = excluded.tagline, about = excluded.about,');
 w('  whatsapp_number = excluded.whatsapp_number, phone_display = excluded.phone_display,');
 w('  address_line = excluded.address_line, min_order_value = excluded.min_order_value,');
@@ -50,15 +52,17 @@ w(`-- Horário: ${loja.horarios.dias}, ${loja.horarios.abre} às ${loja.horarios
 w('insert into public.opening_hours (weekday, opens_at, closes_at)');
 w(`select d, ${q(loja.horarios.abre)}, ${q(loja.horarios.fecha)} from generate_series(0, 6) d where d <> 2; -- 2 = terça`);
 w();
-w('-- Pendentes de confirmação (não constam no cardápio impresso)');
-w(`insert into public.payment_methods (name, asks_change, sort_order) values ('A combinar pelo WhatsApp', false, 1);`);
+w('insert into public.payment_methods (name, asks_change, sort_order) values');
+w(menu.formas_pagamento.map((f, i) => `  (${q(f.nome)}, ${f.troco ? 'true' : 'false'}, ${i + 1})`).join(',\n') + ';');
+w();
+w('-- Pendente de confirmação (não consta no cardápio impresso)');
 w(`insert into public.delivery_zones (name, fee, sort_order) values ('Entrega (taxa a combinar)', null, 1);`);
 w();
 w('insert into public.pizza_sizes (name, slices, max_flavors, sort_order) values');
-w(sizes.map((s, i) => `  (${q(s.sigla)}, ${s.pedacos}, 1, ${i + 1})`).join(',\n') + ';');
+w(sizes.map((s, i) => `  (${q(s.sigla)}, ${s.pedacos}, ${meio.max_sabores}, ${i + 1})`).join(',\n') + ';');
 w();
 w('insert into public.categories (name, sort_order) values');
-w(menu.categorias.map((c, i) => `  (${q(c.nome)}, ${i + 1})`).join(',\n') + ';');
+w([`  (${q(meio.categoria)}, 0)`, ...menu.categorias.map((c, i) => `  (${q(c.nome)}, ${i + 1})`)].join(',\n') + ';');
 w();
 
 const pizzas = menu.categorias.flatMap((c) => c.pizzas.map((p) => ({ ...p, categoria: c.nome })));
@@ -86,10 +90,16 @@ w(menu.categorias.flatMap((c) => c.pizzas.map((p, i) => `  (${q(c.nome)}, ${q(p.
 w(') as v(cat, name, description, ord)');
 w('join public.categories c on c.name = v.cat;');
 w();
+w(`-- ${meio.produto}: todos os sabores, cobrada ${meio.regra_preco === 'maior' ? 'pelo sabor mais caro' : 'pela média dos sabores'}`);
+w('insert into public.products (category_id, kind, name, description, sort_order)');
+w(`select c.id, 'pizza', ${q(meio.produto)}, ${q(meio.descricao)}, 1 from public.categories c where c.name = ${q(meio.categoria)};`);
+w();
 w('insert into public.product_sizes (product_id, size_id)');
 w("select p.id, s.id from public.products p cross join public.pizza_sizes s where p.kind = 'pizza';");
 w('insert into public.product_flavors (product_id, flavor_id)');
 w("select p.id, f.id from public.products p join public.pizza_flavors f on f.name = p.name where p.kind = 'pizza';");
+w('insert into public.product_flavors (product_id, flavor_id)');
+w(`select p.id, f.id from public.products p cross join public.pizza_flavors f where p.name = ${q(meio.produto)};`);
 w();
 w('-- Bordas: o cardápio mostra um preço só; usado igual em P, M e G');
 w('insert into public.crusts (name, sort_order) values');

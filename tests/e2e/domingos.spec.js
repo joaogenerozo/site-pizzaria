@@ -16,15 +16,55 @@ test.afterEach(() => expect(consoleErrors, 'erros no console').toEqual([]));
 
 const card = (page, name) => page.locator('.card').filter({ has: page.locator('.card-name', { hasText: new RegExp(`^${name}$`) }) });
 
-test('cardápio real: 11 categorias, 51 sabores e preços por tamanho', async ({ page }) => {
+test('cardápio real: 12 categorias, 51 sabores + meio a meio e preços por tamanho', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('.section-title')).toHaveCount(11);
-  await expect(page.locator('.card')).toHaveCount(51);
+  await expect(page.locator('.section-title')).toHaveCount(12);
+  await expect(page.locator('.section-title').first()).toHaveText('Pizza meio a meio');
+  await expect(page.locator('.card')).toHaveCount(52);
+  await expect(card(page, 'Pizza 2 sabores \\(meio a meio\\)')).toContainText('até 2 sabores');
   await expect(card(page, 'Calabresa').locator('.card-open')).toHaveAttribute('aria-label', 'Calabresa, P R$ 37,00, M R$ 45,00, G R$ 55,00');
   await expect(card(page, 'Júlia').locator('.card-open')).toHaveAttribute('aria-label', /G R\$ 65,90/);
   for (const name of ['Lombo', 'Mussarela', 'Milho Especial', 'Frango Barbecue']) {
     await expect(card(page, name)).toContainText('Preço em confirmação');
   }
+});
+
+test('meio a meio pelo sabor mais caro e pagamento por Pix, dinheiro e cartões', async ({ page, context }) => {
+  let waUrl = null;
+  await context.route(/wa\.me|whatsapp\.com/, (r) => { waUrl ??= r.request().url(); r.fulfill({ status: 200, body: 'ok' }); });
+  await page.goto('/');
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  const opt = (name) => page.locator('label.opt').filter({ has: page.locator('.opt-name', { hasText: new RegExp(`^${name}\\s*\\d?$`) }) });
+
+  await card(page, 'Pizza 2 sabores \\(meio a meio\\)').click();
+  await opt('G').click();
+  await expect(page.locator('.rule-note')).toHaveText('Pizzas com mais de um sabor são cobradas pelo sabor de maior valor.');
+  await opt('Calabresa').click();
+  await opt('Strogonoff de Boi').click();
+  await expect(opt('Atum').locator('input')).toBeDisabled(); // no máximo 2
+  await expect(page.locator('.sheet-foot .btn')).toContainText('R$ 70,00');
+  await page.locator('.sheet-foot .btn').click();
+  await expect(page.locator('#open-cart')).toContainText('R$ 70,00');
+
+  await page.locator('#open-cart').click();
+  await page.locator('#go-details').click();
+  await page.locator('.segmented label', { hasText: 'Retirada' }).click();
+  for (const name of ['Pix', 'Dinheiro', 'Cartão de crédito', 'Cartão de débito']) await expect(opt(name)).toBeVisible();
+  await expect(page.locator('label.opt', { hasText: 'combinar' })).toHaveCount(0);
+  await page.locator('#f-name').fill('Maria');
+  await page.locator('#f-phone').fill('(35) 99876-5432');
+  await opt('Pix').click();
+  await page.locator('#go-review').click();
+  await expect(page.locator('.total-row.grand')).toContainText('R$ 70,00');
+  const popup = page.context().waitForEvent('page');
+  await page.locator('#send-whatsapp').click();
+  await (await popup).waitForLoadState();
+  const text = new URL(waUrl).searchParams.get('text');
+  expect(text).toContain('Pizza 2 sabores (meio a meio)');
+  expect(text).toContain('Sabores: Calabresa / Strogonoff de Boi');
+  expect(text).toContain('Pagamento: Pix');
+  expect(text).toContain('TOTAL: R$ 70,00');
 });
 
 test('taxa a combinar não aparece como grátis e sabor em confirmação explica no botão', async ({ page }) => {

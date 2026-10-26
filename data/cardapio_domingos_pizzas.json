@@ -16,6 +16,20 @@
     { "sigla": "M", "pedacos": 6 },
     { "sigla": "G", "pedacos": 8 }
   ],
+  "meio_a_meio": {
+    "categoria": "Pizza meio a meio",
+    "produto": "Pizza 2 sabores (meio a meio)",
+    "descricao": "Escolha o tamanho e dois sabores diferentes.",
+    "max_sabores": 2,
+    "regra_preco": "maior",
+    "confirmado": "João Paulo, 26/10/2026"
+  },
+  "formas_pagamento": [
+    { "nome": "Pix", "troco": false },
+    { "nome": "Dinheiro", "troco": true },
+    { "nome": "Cartão de crédito", "troco": false },
+    { "nome": "Cartão de débito", "troco": false }
+  ],
   "categorias": [
     { "nome": "Pizzas de frango", "pizzas": [
       { "nome": "Frango com Catupiry", "ingredientes": "Frango desfiado e catupiry", "precos": { "P": 50.90, "M": 55.00, "G": 57.00 } },
@@ -111,9 +125,7 @@
   ],
   "pendencias": [
     "O cardápio impresso não diz se as bordas têm o mesmo preço em P, M e G; o site usa o mesmo valor nos três tamanhos.",
-    "O cardápio não diz se é possível pedir pizza meio a meio; o site aceita 1 sabor por pizza até isso ser confirmado.",
     "Taxas de entrega por bairro não constam no cardápio; o site mostra \"taxa a combinar\".",
-    "Formas de pagamento não constam no cardápio; o site mostra \"a combinar pelo WhatsApp\".",
     "\"Todos os dias duas pizzas na promoção\": o cardápio não diz quais; nenhuma promoção foi cadastrada."
   ]
 }
