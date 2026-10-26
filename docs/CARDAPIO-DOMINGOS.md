@@ -53,9 +53,7 @@ Nada disso foi inventado. Enquanto você não informar, o site funciona assim:
 
 | Assunto | Como está no site | O que preciso de você |
 |---|---|---|
-| Meio a meio | 1 sabor por pizza | Pode pedir 2 sabores? Em quais tamanhos? Cobra pelo mais caro ou pela média? |
 | Taxa de entrega | Região "Entrega (taxa a combinar)". O cliente digita o bairro e o total sai **sem a taxa**, e a mensagem diz "a combinar com a pizzaria" | Bairros e taxas (ou uma taxa fixa) |
-| Formas de pagamento | "A combinar pelo WhatsApp" | Dinheiro, Pix, cartão? Leva maquininha? |
 | Preço das bordas por tamanho | Mesmo valor em P, M e G | A borda custa igual nos três tamanhos? |
 | "Todos os dias duas pizzas na promoção" | Nenhuma promoção cadastrada | Quais pizzas e qual preço, se quiser no site |
 | Pedido mínimo e tempo de entrega | Sem mínimo; tempo não exibido | Valores, se houver |
@@ -93,11 +91,19 @@ e execute o `supabase/seed_domingos.sql` gerado no SQL Editor do Supabase.
 Atenção: isso **apaga e substitui** o cardápio inteiro, inclusive o que foi
 alterado pelo painel.
 
+## Confirmado pela pizzaria (26/10/2026)
+
+- **Meio a meio:** card "Pizza 2 sabores (meio a meio)", primeiro do cardápio, com os
+  51 sabores. Até 2 sabores em P, M e G, cobrada pelo sabor mais caro.
+  Exemplo: G Calabresa (55,00) + Strogonoff de Boi (70,00) = R$ 70,00.
+- **Formas de pagamento:** Pix, Dinheiro (pergunta o troco), Cartão de crédito e
+  Cartão de débito.
+
 ## Testes feitos (ambiente local que imita o Supabase)
 
 | # | Teste | Resultado |
 |---|---|---|
-| 1 | Todas as 11 categorias carregam | OK |
+| 1 | Todas as 12 categorias carregam (11 + meio a meio) | OK |
 | 2 | Os 51 sabores aparecem | OK |
 | 3 | Ingredientes nos cards e na busca (ex.: "requeijao" sem acento, "goiaba") | OK |
 | 4-5 | Escolha de P, M, G e preço atualizado (Calabresa 37,00 / 45,00 / 55,00) | OK |
@@ -111,9 +117,10 @@ alterado pelo painel.
 | 14 | Build de produção servido numa subpasta com a política de segurança da Hostinger | OK |
 | 15 | Admin confirma o preço do Lombo e o cardápio passa a aceitar o pedido (gravado no banco) | OK |
 | — | Todos os 153 preços no banco iguais ao arquivo de dados | OK, 0 divergências |
-| — | Sabor em confirmação, meio a meio e taxa a combinar recusados/tratados pelo banco | OK |
+| 16 | Meio a meio G Calabresa + Strogonoff de Boi = R$ 70,00, pago com Pix, até a mensagem do WhatsApp | OK |
+| — | Sabor em confirmação, 3 sabores e taxa a combinar recusados/tratados pelo banco | OK |
 
-Totais: 82 testes no banco, 25 de unidade e 46 no navegador (celular e
+Totais: 87 testes no banco, 25 de unidade e 54 no navegador (celular e
 desktop), todos passando.
 
 **Ainda não testado:** projeto Supabase real, publicação na Hostinger e envio

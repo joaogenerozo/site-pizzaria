@@ -21,7 +21,7 @@ insert into public.store_settings (id, name, tagline, about, whatsapp_number, ph
 values (1, 'Domingo''s Pizzas', 'O sabor que reúne quem você ama!',
   'Desde 2013. Todas as pizzas acompanham molho de tomate, orégano e azeitona. Telefones: (35) 99805-8784, (35) 91024-3144 (principal), (35) 99836-0162.',
   '5535910243144', '(35) 91024-3144', 'Avenida Mario Lanzani, 261 - Vila Maganhoto',
-  0, null, false)
+  0, 'maior', false)
 on conflict (id) do update set name = excluded.name, tagline = excluded.tagline, about = excluded.about,
   whatsapp_number = excluded.whatsapp_number, phone_display = excluded.phone_display,
   address_line = excluded.address_line, min_order_value = excluded.min_order_value,
@@ -31,16 +31,22 @@ on conflict (id) do update set name = excluded.name, tagline = excluded.tagline,
 insert into public.opening_hours (weekday, opens_at, closes_at)
 select d, '18:00', '22:00' from generate_series(0, 6) d where d <> 2; -- 2 = terça
 
--- Pendentes de confirmação (não constam no cardápio impresso)
-insert into public.payment_methods (name, asks_change, sort_order) values ('A combinar pelo WhatsApp', false, 1);
+insert into public.payment_methods (name, asks_change, sort_order) values
+  ('Pix', false, 1),
+  ('Dinheiro', true, 2),
+  ('Cartão de crédito', false, 3),
+  ('Cartão de débito', false, 4);
+
+-- Pendente de confirmação (não consta no cardápio impresso)
 insert into public.delivery_zones (name, fee, sort_order) values ('Entrega (taxa a combinar)', null, 1);
 
 insert into public.pizza_sizes (name, slices, max_flavors, sort_order) values
-  ('P', 4, 1, 1),
-  ('M', 6, 1, 2),
-  ('G', 8, 1, 3);
+  ('P', 4, 2, 1),
+  ('M', 6, 2, 2),
+  ('G', 8, 2, 3);
 
 insert into public.categories (name, sort_order) values
+  ('Pizza meio a meio', 0),
   ('Pizzas de frango', 1),
   ('Pizzas de brócolis', 2),
   ('Pizzas de calabresa', 3),
@@ -322,10 +328,16 @@ select c.id, 'pizza', v.name, v.description, v.ord from (values
 ) as v(cat, name, description, ord)
 join public.categories c on c.name = v.cat;
 
+-- Pizza 2 sabores (meio a meio): todos os sabores, cobrada pelo sabor mais caro
+insert into public.products (category_id, kind, name, description, sort_order)
+select c.id, 'pizza', 'Pizza 2 sabores (meio a meio)', 'Escolha o tamanho e dois sabores diferentes.', 1 from public.categories c where c.name = 'Pizza meio a meio';
+
 insert into public.product_sizes (product_id, size_id)
 select p.id, s.id from public.products p cross join public.pizza_sizes s where p.kind = 'pizza';
 insert into public.product_flavors (product_id, flavor_id)
 select p.id, f.id from public.products p join public.pizza_flavors f on f.name = p.name where p.kind = 'pizza';
+insert into public.product_flavors (product_id, flavor_id)
+select p.id, f.id from public.products p cross join public.pizza_flavors f where p.name = 'Pizza 2 sabores (meio a meio)';
 
 -- Bordas: o cardápio mostra um preço só; usado igual em P, M e G
 insert into public.crusts (name, sort_order) values

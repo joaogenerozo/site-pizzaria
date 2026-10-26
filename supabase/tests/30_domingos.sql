@@ -38,16 +38,20 @@ grant execute on all functions in schema tst to anon;
 do $$ begin
   if (select count(*) from public.pizza_flavors) <> 51 then raise exception 'FALHOU: esperado 51 sabores'; end if;
   if (select count(*) from public.flavor_prices) <> 153 then raise exception 'FALHOU: esperado 153 preços'; end if;
-  if (select count(*) from public.categories) <> 11 then raise exception 'FALHOU: esperado 11 categorias'; end if;
+  if (select count(*) from public.categories) <> 12 then raise exception 'FALHOU: esperado 12 categorias'; end if;
+  if (select string_agg(name, ',' order by sort_order) from public.payment_methods) <> 'Pix,Dinheiro,Cartão de crédito,Cartão de débito'
+    then raise exception 'FALHOU: formas de pagamento erradas'; end if;
+  if (select count(*) from public.product_flavors pf join public.products p on p.id = pf.product_id where p.name = 'Pizza 2 sabores (meio a meio)') <> 51
+    then raise exception 'FALHOU: meio a meio deveria ter os 51 sabores'; end if;
   if (select string_agg(name, ',' order by name) from public.pizza_flavors where price_review) <> 'Frango Barbecue,Lombo,Milho Especial,Mussarela'
     then raise exception 'FALHOU: sabores em confirmação errados'; end if;
-  raise notice 'OK carga: 51 sabores, 153 preços, 11 categorias, 4 em confirmação';
+  raise notice 'OK carga: 51 sabores, 153 preços, 12 categorias, 4 em confirmação, 4 pagamentos, meio a meio com 51 sabores';
 end $$;
 
 set role anon;
 do $$ begin
-  if (select count(*) from public.products) <> 51 then raise exception 'FALHOU: visitante deveria ver 51 pizzas'; end if;
-  raise notice 'OK visitante vê as 51 pizzas';
+  if (select count(*) from public.products) <> 52 then raise exception 'FALHOU: visitante deveria ver 52 pizzas'; end if;
+  raise notice 'OK visitante vê as 52 pizzas (51 sabores + meio a meio)';
 end $$;
 select tst.ok('Calabresa P = 37,00', $$[{"product_id":{p:Calabresa},"quantity":1,"size_id":{s:P},"flavor_ids":[{f:Calabresa}]}]$$, 'pickup', null, 'subtotal', 37);
 select tst.ok('Frango com Catupiry P = 50,90', $$[{"product_id":{p:Frango com Catupiry},"quantity":1,"size_id":{s:P},"flavor_ids":[{f:Frango com Catupiry}]}]$$, 'pickup', null, 'subtotal', 50.90);
@@ -57,12 +61,17 @@ select tst.ok('borda com o mesmo preço no P', $$[{"product_id":{p:Peru},"quanti
 select tst.ok('entrega com taxa a combinar: taxa 0 no total', $$[{"product_id":{p:Atum},"quantity":1,"size_id":{s:M},"flavor_ids":[{f:Atum}]}]$$, 'delivery', 'Entrega (taxa a combinar)', 'total', 55);
 select tst.flag('entrega com taxa a combinar fica marcada', $$[{"product_id":{p:Atum},"quantity":1,"size_id":{s:M},"flavor_ids":[{f:Atum}]}]$$, 'delivery', 'Entrega (taxa a combinar)', true);
 select tst.flag('retirada não tem taxa pendente', $$[{"product_id":{p:Atum},"quantity":1,"size_id":{s:M},"flavor_ids":[{f:Atum}]}]$$, 'pickup', null, false);
+select tst.ok('meio a meio G Calabresa 55 + Strogonoff de Boi 70 = 70 (mais caro)', $$[{"product_id":{p:Pizza 2 sabores (meio a meio)},"quantity":1,"size_id":{s:G},"flavor_ids":[{f:Calabresa},{f:Strogonoff de Boi}]}]$$, 'pickup', null, 'subtotal', 70);
+select tst.ok('meio a meio P Calabresa 37 + Atum 45 + borda requeijão 15 = 60', $$[{"product_id":{p:Pizza 2 sabores (meio a meio)},"quantity":1,"size_id":{s:P},"flavor_ids":[{f:Calabresa},{f:Atum}],"crust_id":{c:Borda de requeijão}}]$$, 'pickup', null, 'subtotal', 60);
+select tst.ok('meio a meio com 1 sabor só', $$[{"product_id":{p:Pizza 2 sabores (meio a meio)},"quantity":1,"size_id":{s:M},"flavor_ids":[{f:Atum}]}]$$, 'pickup', null, 'subtotal', 55);
+select tst.err('meio a meio com 3 sabores', $$[{"product_id":{p:Pizza 2 sabores (meio a meio)},"quantity":1,"size_id":{s:G},"flavor_ids":[{f:Calabresa},{f:Atum},{f:Bacon}]}]$$, 'pickup');
+select tst.err('meio a meio com sabor em confirmação', $$[{"product_id":{p:Pizza 2 sabores (meio a meio)},"quantity":1,"size_id":{s:G},"flavor_ids":[{f:Calabresa},{f:Lombo}]}]$$, 'pickup');
 
 select tst.err('Lombo (preço em confirmação)', $$[{"product_id":{p:Lombo},"quantity":1,"size_id":{s:P},"flavor_ids":[{f:Lombo}]}]$$, 'pickup');
 select tst.err('Mussarela (preço em confirmação)', $$[{"product_id":{p:Mussarela},"quantity":1,"size_id":{s:G},"flavor_ids":[{f:Mussarela}]}]$$, 'pickup');
 select tst.err('Milho Especial (preço em confirmação)', $$[{"product_id":{p:Milho Especial},"quantity":1,"size_id":{s:M},"flavor_ids":[{f:Milho Especial}]}]$$, 'pickup');
 select tst.err('Frango Barbecue (preço em confirmação)', $$[{"product_id":{p:Frango Barbecue},"quantity":1,"size_id":{s:G},"flavor_ids":[{f:Frango Barbecue}]}]$$, 'pickup');
-select tst.err('meio a meio ainda não liberado', $$[{"product_id":{p:Calabresa},"quantity":1,"size_id":{s:G},"flavor_ids":[{f:Calabresa},{f:Bacon}]}]$$, 'pickup');
+select tst.err('card de um sabor não aceita segundo sabor', $$[{"product_id":{p:Calabresa},"quantity":1,"size_id":{s:G},"flavor_ids":[{f:Calabresa},{f:Bacon}]}]$$, 'pickup');
 select tst.err('sabor de outro card', $$[{"product_id":{p:Calabresa},"quantity":1,"size_id":{s:G},"flavor_ids":[{f:Bacon}]}]$$, 'pickup');
 
 reset role;
