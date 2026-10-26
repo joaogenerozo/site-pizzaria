@@ -10,6 +10,7 @@ import { priceItem } from '../lib/pricing.js';
 import { createCart } from '../lib/cart.js';
 import { openProductModal } from './productModal.js';
 import { openCartDrawer } from './cartDrawer.js';
+import brandImage from '../assets/marca-domingos.jpg';
 
 const app = document.getElementById('app');
 export const cart = createCart();
@@ -88,11 +89,21 @@ function renderHero() {
   if (s.pickup_enabled && s.pickup_time_min != null) meta.push(h('span', { class: 'pill' }, icon('bag'), `Retirada ${range(s.pickup_time_min, s.pickup_time_max)}`));
   if (Number(s.min_order_value) > 0) meta.push(h('span', { class: 'pill' }, `Pedido mínimo ${formatPrice(s.min_order_value)}`));
 
+  // Marca da pizzaria no topo; o nome continua no h1 para leitores de tela e buscadores.
+  // Se a imagem não carregar, volta o topo com logo redondo e nome escrito.
+  const title = h('h1', { class: 'brand-name sr-only' }, s.name);
+  const roundLogo = s.logo_url ? h('img', { class: 'logo', src: s.logo_url, alt: `Logo ${s.name}`, hidden: true })
+    : h('div', { class: 'logo', 'aria-hidden': 'true', hidden: true }, pizzaArt());
+  const banner = h('div', { class: 'brand-banner' }, h('img', {
+    src: brandImage, alt: '', width: 828, height: 185, fetchpriority: 'high',
+    onerror: () => { banner.remove(); title.classList.remove('sr-only'); roundLogo.hidden = false; },
+  }));
   const hero = h('header', { class: `hero${s.cover_url ? ' has-cover' : ''}` },
+    banner,
     h('div', { class: 'wrap hero-inner' },
       h('div', { class: 'brand-row' },
-        s.logo_url ? h('img', { class: 'logo', src: s.logo_url, alt: `Logo ${s.name}` }) : h('div', { class: 'logo', 'aria-hidden': 'true' }, pizzaArt()),
-        h('div', {}, h('h1', { class: 'brand-name' }, s.name), s.tagline ? h('p', { class: 'brand-tagline' }, s.tagline) : null)),
+        roundLogo,
+        h('div', {}, title, s.tagline ? h('p', { class: 'brand-tagline' }, s.tagline) : null)),
       h('div', { class: 'meta' }, meta),
       h('button', { class: 'info-btn', type: 'button', onclick: openInfo }, icon('info'), 'Informações, horários e endereço')));
   if (s.cover_url) hero.style.backgroundImage = `url("${encodeURI(s.cover_url)}")`;

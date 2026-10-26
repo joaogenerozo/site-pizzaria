@@ -76,6 +76,10 @@ a { color: var(--blue); }
   background: linear-gradient(180deg, rgba(5, 15, 40, .25), rgba(5, 15, 40, .78));
 }
 .hero-inner { position: relative; padding: 28px 16px 22px; display: grid; gap: 14px; }
+/* Faixa com a marca no topo: mesma cor do fundo da imagem, de ponta a ponta */
+.brand-banner { position: relative; background: #04132c; padding: 14px 16px 8px; border-bottom: 1px solid rgba(255, 255, 255, .12); }
+.brand-banner img { display: block; width: 100%; max-width: 560px; height: auto; margin: 0 auto; }
+.brand-banner + .hero-inner { padding-top: 16px; }
 .brand-row { display: flex; align-items: center; gap: 14px; }
 .logo {
   width: 72px; height: 72px; flex: none;
