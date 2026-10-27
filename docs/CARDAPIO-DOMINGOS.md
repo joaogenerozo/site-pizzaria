@@ -120,7 +120,7 @@ alterado pelo painel.
 | 16 | Meio a meio G Calabresa + Strogonoff de Boi = R$ 70,00, pago com Pix, até a mensagem do WhatsApp | OK |
 | — | Sabor em confirmação, 3 sabores e taxa a combinar recusados/tratados pelo banco | OK |
 
-Totais: 87 testes no banco, 25 de unidade e 54 no navegador (celular e
+Totais: 87 testes no banco, 25 de unidade e 56 no navegador (celular e
 desktop), todos passando.
 
 **Ainda não testado:** projeto Supabase real, publicação na Hostinger e envio
