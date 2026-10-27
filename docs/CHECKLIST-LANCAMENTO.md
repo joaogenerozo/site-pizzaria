@@ -30,6 +30,10 @@ Marque cada item **no site publicado**, num celular e num computador.
 - [ ] Conteúdo de `dist/` (com `.htaccess`) em `public_html`.
 - [ ] `http://` redireciona para `https://`.
 - [ ] Site URL do Supabase = domínio final.
+- [ ] `https://seudominio/robots.txt` e `https://seudominio/sitemap.xml` abrem com o domínio final.
+- [ ] Código-fonte da página (Ctrl+U) com `<link rel="canonical">` apontando para o domínio final.
+- [ ] Site cadastrado no Google Search Console, com o `sitemap.xml` enviado.
+- [ ] PageSpeed Insights (pagespeed.web.dev) no celular sem alertas vermelhos de LCP, CLS e INP.
 
 ## Testes no site publicado
 - [ ] Cardápio carrega; categorias e busca funcionam.

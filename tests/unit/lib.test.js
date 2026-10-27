@@ -5,6 +5,7 @@ import { createCart, sanitizeItem } from '../../src/lib/cart.js';
 import { buildOrderMessage, whatsappLink, normalizeBrPhone, cleanText } from '../../src/lib/whatsapp.js';
 import { buildCatalog } from '../../src/lib/catalog.js';
 import { priceItem } from '../../src/lib/pricing.js';
+import { productImageAlt } from '../../src/lib/text.js';
 
 const id = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
@@ -212,5 +213,17 @@ describe('mensagem do WhatsApp', () => {
   });
   it('remove caracteres de controle do texto livre', () => {
     expect(cleanText('a\u0000b\n\nc   d')).toBe('a b c d');
+  });
+});
+
+describe('texto alternativo das fotos', () => {
+  it('junta a categoria quando ela acrescenta informação', () => {
+    expect(productImageAlt('Calabresa', 'Pizzas de calabresa')).toBe('Calabresa - Pizzas de calabresa');
+    expect(productImageAlt('Coca-Cola 2L', 'Bebidas')).toBe('Coca-Cola 2L - Bebidas');
+  });
+  it('fica só com o nome quando a categoria repete o nome ou falta', () => {
+    expect(productImageAlt('Pizza doce', 'Pizza')).toBe('Pizza doce');
+    expect(productImageAlt('Pizza meio a meio', 'Pizza meio a meio')).toBe('Pizza meio a meio');
+    expect(productImageAlt('Batata frita', undefined)).toBe('Batata frita');
   });
 });

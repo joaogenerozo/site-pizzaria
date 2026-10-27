@@ -2,7 +2,7 @@ import '../styles/main.css';
 import { h, clear, add } from '../lib/dom.js';
 import { icon, illustration, pizzaArt } from '../lib/icons.js';
 import { formatCents, formatPrice } from '../lib/money.js';
-import { matchesSearch } from '../lib/text.js';
+import { matchesSearch, normalize, productImageAlt } from '../lib/text.js';
 import { openStatus, describeStatus, hoursByDay, nowInZone } from '../lib/hours.js';
 import { loadMenuData } from '../lib/api.js';
 import { buildCatalog } from '../lib/catalog.js';
@@ -10,18 +10,47 @@ import { priceItem } from '../lib/pricing.js';
 import { createCart } from '../lib/cart.js';
 import { openProductModal } from './productModal.js';
 import { openCartDrawer } from './cartDrawer.js';
-import brandImage from '../assets/marca-domingos.png';
-import brandSymbol from '../assets/simbolo-domingos.png';
 
 const app = document.getElementById('app');
 export const cart = createCart();
 let catalog = null;
 let query = '';
+let slugs = new Map(); // id da categoria -> âncora legível (#pizzas-de-calabresa)
+
+// O index.html já traz o topo com a marca e o esqueleto do cardápio: a página
+// pinta antes do JavaScript e dos dados chegarem (melhora FCP/LCP). A faixa da
+// marca é reaproveitada no topo definitivo, sem baixar ou pintar de novo.
+const loadingShell = [...app.childNodes].map((n) => n.cloneNode(true));
+let brandBanner = app.querySelector('.brand-banner');
+setupBrandImages();
+
+function setupBrandImages() {
+  const wordmark = brandBanner?.querySelector('.brand-wordmark');
+  const symbol = brandBanner?.querySelector('.brand-symbol');
+  // Se o nome escrito não carregar, volta o topo com logo redondo e nome em texto
+  const failWordmark = () => {
+    brandBanner?.remove();
+    brandBanner = null;
+    document.querySelector('.hero .brand-name')?.classList.remove('sr-only');
+    const logo = document.querySelector('.hero .logo');
+    if (logo) logo.hidden = false;
+  };
+  const failSymbol = () => symbol.remove();
+  if (wordmark) {
+    if (wordmark.complete && !wordmark.naturalWidth) failWordmark();
+    else wordmark.addEventListener('error', failWordmark);
+  }
+  if (symbol) {
+    if (symbol.complete && !symbol.naturalWidth) failSymbol();
+    else symbol.addEventListener('error', failSymbol);
+  }
+}
 
 boot();
 
 async function boot() {
-  renderLoading();
+  // Na primeira carga o esqueleto já está na página (index.html)
+  if (!app.querySelector('[data-shell]')) renderLoading();
   try {
     catalog = buildCatalog(await loadMenuData());
   } catch (err) {
@@ -37,22 +66,14 @@ async function boot() {
 
 // ---------------------------------------------------------------- estados
 function renderLoading() {
-  clear(app).append(
-    h('div', { class: 'hero' }, h('div', { class: 'wrap hero-inner' },
-      h('div', { class: 'brand-row' }, h('div', { class: 'logo skeleton' }),
-        h('div', { style: 'flex:1' }, h('div', { class: 'skeleton', style: 'height:30px;width:60%' }))))),
-    h('main', { class: 'wrap', 'aria-busy': 'true' },
-      h('p', { class: 'sr-only' }, 'Carregando cardápio…'),
-      h('div', { class: 'section' }, h('div', { class: 'skeleton', style: 'height:26px;width:160px;margin-bottom:12px' }),
-        h('div', { class: 'grid' }, Array.from({ length: 6 }, () => h('div', { class: 'skeleton skeleton-card' }))))),
-  );
+  clear(app).append(...loadingShell.map((n) => n.cloneNode(true)));
 }
 
 function renderError(err) {
   const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
   clear(app).append(h('main', { class: 'wrap' }, h('div', { class: 'state', role: 'alert' },
     icon('alert'),
-    h('h2', {}, 'Não foi possível carregar o cardápio'),
+    h('h1', {}, 'Não foi possível carregar o cardápio'),
     h('p', {}, offline ? 'Você parece estar sem internet. Verifique a conexão.' : 'Tente novamente em instantes.'),
     import.meta.env.DEV ? h('p', { style: 'font-size:13px' }, String(err.message)) : null,
     h('button', { class: 'btn', type: 'button', onclick: boot }, 'Tentar novamente'))));
@@ -61,7 +82,8 @@ function renderError(err) {
 // ---------------------------------------------------------------- página
 function render() {
   const s = catalog.settings;
-  document.title = `${s.name} · Cardápio`;
+  document.title = `${s.name} | Cardápio e pedidos pelo WhatsApp`;
+  slugs = categorySlugs(catalog.categories);
   add(clear(app),
     s.is_demo ? h('div', { class: 'demo-banner', role: 'note' },
       h('strong', {}, 'Modo demonstração: '), 'nome, produtos, preços e taxas são fictícios.') : null,
@@ -76,6 +98,10 @@ function render() {
   renderCartBar();
   cart.subscribe(renderCartBar);
   setupScrollSpy();
+  renderStructuredData();
+  // Link direto para uma categoria (ex.: .../#pizzas-doces) só funciona depois que o cardápio existe
+  if (location.hash) goToHash(false);
+  window.addEventListener('hashchange', () => goToHash(true));
 }
 
 function renderHero() {
@@ -91,17 +117,13 @@ function renderHero() {
   if (s.pickup_enabled && s.pickup_time_min != null) meta.push(h('span', { class: 'pill' }, icon('bag'), `Retirada ${range(s.pickup_time_min, s.pickup_time_max)}`));
   if (Number(s.min_order_value) > 0) meta.push(h('span', { class: 'pill' }, `Pedido mínimo ${formatPrice(s.min_order_value)}`));
 
-  // Marca da pizzaria no topo; o nome continua no h1 para leitores de tela e buscadores.
-  // Se a imagem não carregar, volta o topo com logo redondo e nome escrito.
-  const title = h('h1', { class: 'brand-name sr-only' }, s.name);
-  const roundLogo = s.logo_url ? h('img', { class: 'logo', src: s.logo_url, alt: `Logo ${s.name}`, hidden: true })
-    : h('div', { class: 'logo', 'aria-hidden': 'true', hidden: true }, pizzaArt());
-  const fallback = () => { banner.remove(); title.classList.remove('sr-only'); roundLogo.hidden = false; };
-  const banner = h('div', { class: 'brand-banner' }, h('div', { class: 'brand-lockup' },
-    h('img', { class: 'brand-symbol', src: brandSymbol, alt: '', width: 210, height: 220, onerror: (e) => e.target.remove() }),
-    h('img', { class: 'brand-wordmark', src: brandImage, alt: '', width: 643, height: 181, fetchpriority: 'high', onerror: fallback })));
+  // Marca da pizzaria no topo (vem do index.html); o nome continua no h1, o único da página,
+  // para leitores de tela e buscadores. Sem a marca, aparecem o logo redondo e o nome escrito.
+  const title = h('h1', { class: `brand-name${brandBanner ? ' sr-only' : ''}` }, s.name);
+  const roundLogo = s.logo_url ? h('img', { class: 'logo', src: s.logo_url, alt: `Logo da ${s.name}`, hidden: !!brandBanner, width: 72, height: 72 })
+    : h('div', { class: 'logo', 'aria-hidden': 'true', hidden: !!brandBanner }, pizzaArt());
   const hero = h('header', { class: `hero${s.cover_url ? ' has-cover' : ''}` },
-    banner,
+    brandBanner,
     h('div', { class: 'wrap hero-inner' },
       h('div', { class: 'brand-row' },
         roundLogo,
@@ -131,10 +153,7 @@ function renderToolbar() {
   clearBtn.addEventListener('click', () => { input.value = ''; query = ''; clearBtn.hidden = true; renderMenu(); input.focus(); });
 
   const nav = h('nav', { class: 'cat-nav', id: 'cat-nav', 'aria-label': 'Categorias' },
-    catalog.categories.map((c) => h('a', {
-      class: 'cat-link', href: `#cat-${c.id}`, dataset: { cat: c.id },
-      onclick: (e) => { e.preventDefault(); scrollToCategory(c.id); },
-    }, c.name)));
+    catalog.categories.map((c) => categoryLink(c, 'cat-link')));
   // Setas para quem usa mouse: rolar a barra de lado com a roda é difícil
   const arrow = (dir) => h('button', {
     type: 'button', class: 'cat-arrow', 'aria-hidden': 'true', tabindex: '-1',
@@ -155,10 +174,57 @@ function renderToolbar() {
     h('div', { class: 'cat-row' }, prev, nav, next)));
 }
 
-function scrollToCategory(id) {
-  const target = document.getElementById(`cat-${id}`);
+// ---------------------------------------------------------------- links internos
+// Cada categoria tem uma âncora legível e estável, derivada do nome
+// (#pizzas-de-calabresa), em vez do código interno do banco.
+const RESERVED_IDS = new Set(['app', 'menu', 'search', 'cat-nav', 'cart-bar', 'open-cart', 'contact-whatsapp', 'info-title', 'pm-title', 'cart-title']);
+function categorySlugs(categories) {
+  const map = new Map();
+  const used = new Set(RESERVED_IDS);
+  for (const c of categories) {
+    const base = normalize(c.name).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'categoria';
+    let slug = base;
+    for (let i = 2; used.has(slug); i++) slug = `${base}-${i}`;
+    used.add(slug);
+    map.set(c.id, slug);
+  }
+  return map;
+}
+
+function categoryLink(c, className) {
+  return h('a', {
+    class: className, href: `#${slugs.get(c.id)}`, dataset: { cat: c.id },
+    onclick: (e) => {
+      e.preventDefault();
+      showCategory(c.id);
+      history.replaceState(null, '', `#${slugs.get(c.id)}`); // endereço compartilhável, sem encher o "voltar"
+    },
+  }, c.name);
+}
+
+// Aceita a âncora nova e a antiga (#cat-<id>), que pode estar em links já compartilhados
+function goToHash(smooth) {
+  const key = decodeURIComponent(location.hash.slice(1));
+  const c = catalog.categories.find((x) => slugs.get(x.id) === key || `cat-${x.id}` === key);
+  if (!c) return;
+  if (key !== slugs.get(c.id)) history.replaceState(null, '', `#${slugs.get(c.id)}`);
+  showCategory(c.id, smooth);
+}
+
+function showCategory(id, smooth = true) {
+  // Se a busca escondeu a categoria, limpa a busca antes de rolar até ela
+  if (!document.getElementById(slugs.get(id)) && query) {
+    const input = document.getElementById('search');
+    input.value = '';
+    input.dispatchEvent(new Event('input'));
+  }
+  scrollToCategory(id, smooth);
+}
+
+function scrollToCategory(id, smooth = true) {
+  const target = document.getElementById(slugs.get(id));
   if (!target) return;
-  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  target.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
   setActiveCategory(id);
 }
 
@@ -177,7 +243,7 @@ function renderMenu() {
     document.querySelector(`.cat-link[data-cat="${c.id}"]`)?.toggleAttribute('hidden', items.length === 0);
     if (!items.length) continue;
     shown += items.length;
-    main.append(h('section', { class: 'section', id: `cat-${c.id}`, dataset: { cat: c.id }, 'aria-labelledby': `t-${c.id}` },
+    main.append(h('section', { class: 'section', id: slugs.get(c.id), dataset: { cat: c.id }, 'aria-labelledby': `t-${c.id}` },
       h('h2', { class: 'section-title', id: `t-${c.id}` }, c.name),
       c.description ? h('p', { class: 'card-desc', style: 'margin:-6px 0 12px' }, c.description) : null,
       h('div', { class: 'grid' }, items.map((p) => productCard(p, c)))));
@@ -233,7 +299,7 @@ function productCard(p, category) {
         hasPromo ? h('span', { class: 'price-old' }, formatCents(p.priceCents)) : null,
         h('span', { class: `price${hasPromo ? ' price-promo' : ''}` }, formatCents(p.fromCents)))),
   p.image_url
-    ? h('img', { class: 'thumb', src: p.image_url, alt: '', loading: 'lazy', width: 96, height: 96 })
+    ? h('img', { class: 'thumb', src: p.image_url, alt: productImageAlt(p.name, category.name), loading: 'lazy', decoding: 'async', width: 96, height: 96 })
     : h('div', { class: 'thumb placeholder', 'aria-hidden': 'true' }, illustration(p, category.name)));
 }
 
@@ -292,6 +358,40 @@ function openInfo() {
   dialog.showModal();
 }
 
+// ---------------------------------------------------------------- dados estruturados
+// Restaurant (schema.org) em JSON-LD: endereço, telefone e horários direto do
+// cadastro da loja, para o Google mostrar no resultado da busca e no Maps.
+const SCHEMA_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+function renderStructuredData() {
+  const s = catalog.settings;
+  document.getElementById('ld-restaurant')?.remove();
+  if (s.is_demo) return; // dados fictícios não vão para os buscadores
+  const url = new URL('./', location.href).href;
+  const tel = s.phone_display ? telHref(s.phone_display) : null;
+  const data = {
+    '@context': 'https://schema.org',
+    '@type': 'Restaurant',
+    name: s.name,
+    url,
+    image: new URL('og-image.png', url).href,
+    description: s.tagline || undefined,
+    servesCuisine: 'Pizza',
+    hasMenu: url,
+    acceptsReservations: false,
+    telephone: tel ? tel.slice(4) : undefined,
+    address: s.address_line ? { '@type': 'PostalAddress', streetAddress: s.address_line, addressCountry: 'BR' } : undefined,
+    hasMap: s.maps_url || undefined,
+    sameAs: s.instagram_url ? [s.instagram_url] : undefined,
+    openingHoursSpecification: catalog.hours.map((hr) => ({
+      '@type': 'OpeningHoursSpecification',
+      dayOfWeek: `https://schema.org/${SCHEMA_DAYS[hr.weekday]}`,
+      opens: String(hr.opens_at).slice(0, 5),
+      closes: String(hr.closes_at).slice(0, 5),
+    })),
+  };
+  document.head.append(h('script', { type: 'application/ld+json', id: 'ld-restaurant' }, JSON.stringify(data)));
+}
+
 // ---------------------------------------------------------------- rodapé
 // Telefone brasileiro com DDD (10 ou 11 dígitos) vira link de ligação
 const telHref = (display) => {
@@ -304,6 +404,7 @@ function renderFooter() {
   const year = new Date().getFullYear();
   return h('footer', { class: 'footer' }, h('div', { class: 'wrap' },
     h('div', {}, h('h2', {}, s.name), s.tagline ? h('p', {}, s.tagline) : null,
+      s.about ? h('p', {}, s.about) : null,
       s.address_line ? h('p', {}, s.address_line) : null,
       s.maps_url ? h('p', {}, h('a', { href: s.maps_url, target: '_blank', rel: 'noopener noreferrer' }, 'Como chegar')) : null),
     h('div', {}, h('h3', {}, 'Contato'),
@@ -314,6 +415,9 @@ function renderFooter() {
     h('div', {}, h('h3', {}, 'Horários'),
       hoursByDay(catalog.hours).filter((d) => d.slots.length).map((d) => h('p', {}, `${d.name}: ${d.slots.join(', ')}`)),
       !catalog.hours.length ? h('p', {}, 'Ainda não informados.') : null),
+    catalog.categories.length ? h('nav', { class: 'footer-nav', 'aria-labelledby': 'footer-menu-title' },
+      h('h3', { id: 'footer-menu-title' }, 'Cardápio'),
+      h('ul', {}, catalog.categories.map((c) => h('li', {}, categoryLink(c))))) : null,
     h('p', { class: 'fine' }, `© ${year} ${s.name}. Os pedidos são enviados pelo WhatsApp e só são confirmados após a resposta da pizzaria. Seu nome, telefone e endereço ficam salvos só neste aparelho, para agilizar o próximo pedido, e vão para a pizzaria apenas na mensagem que você envia.`)));
 }
 

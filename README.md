@@ -118,7 +118,7 @@ Também há um ambiente 100% local que imita o Supabase (PostgreSQL + PostgREST
 ```bash
 bash supabase/tests/run.sh                       # 82 testes de RLS e preço no banco
 LOCAL_ANON_KEY=$(node dev/make-jwt.mjs anon) \
-  npx playwright test                            # 56 testes no navegador (celular e desktop)
+  npx playwright test                            # 68 testes no navegador (celular e desktop)
 SEED=domingos bash dev/reset-db.sh               # abre o site local com o cardápio real
 ```
 
@@ -132,9 +132,11 @@ SEED=domingos bash dev/reset-db.sh               # abre o site local com o card�
    VITE_SITE_URL=https://www.suapizzaria.com.br
    ```
 
-   `VITE_SITE_URL` é o endereço final do site. Ele é opcional, mas sem ele o
-   link compartilhado no WhatsApp/Instagram sai sem a imagem de prévia
-   (`og-image.png`). Se a URL ou a chave do Supabase faltarem, o build **para
+   `VITE_SITE_URL` é o endereço final do site (com `https://`, sem barra no
+   fim). Ele é opcional, mas sem ele o link compartilhado no WhatsApp/Instagram
+   sai sem a imagem de prévia (`og-image.png`) e o build não gera o
+   `sitemap.xml` nem o endereço canônico, que ajudam o Google. Quando o domínio
+   mudar, gere e envie o site de novo. Se a URL ou a chave do Supabase faltarem, o build **para
    com um erro** em vez de gerar um site que não carrega.
 
 2. Rode `npm run build`. O resultado fica na pasta **`dist/`**:
@@ -147,7 +149,9 @@ SEED=domingos bash dev/reset-db.sh               # abre o site local com o card�
    ├── favicon.png       ícone da aba (símbolo da Domingo's)
    ├── apple-touch-icon.png  ícone ao salvar o site na tela do celular
    ├── og-image.png      imagem da prévia do link
-   └── .htaccess         HTTPS, cabeçalhos de segurança e cache
+   ├── robots.txt        regras para buscadores (o /admin/ fica de fora)
+   ├── sitemap.xml       mapa do site para o Google (só com VITE_SITE_URL)
+   └── .htaccess         HTTPS, cabeçalhos de segurança, cache e compressão
    ```
 
    Os caminhos são relativos: funciona na raiz do domínio ou numa subpasta.
@@ -186,6 +190,21 @@ Siga [docs/CHECKLIST-LANCAMENTO.md](docs/CHECKLIST-LANCAMENTO.md). No mínimo:
 o cardápio carrega, um pedido de teste chega no WhatsApp da pizzaria, o
 `/admin/` pede login, uma alteração de preço aparece no site e não há erros
 no console do navegador (F12).
+
+### Aparecer no Google
+
+- O site já sai pronto para buscadores: título e descrição, endereço canônico,
+  `robots.txt`, `sitemap.xml`, dados da pizzaria em JSON-LD (endereço,
+  telefone e horários vêm do painel) e textos alternativos nas imagens.
+- O **domínio temporário** da Hostinger (`*.hostingersite.com`) é bloqueado
+  para o Google pela própria Hostinger. O site só entra no Google depois de
+  conectado a um domínio próprio (passo 8) e gerado com esse domínio em
+  `VITE_SITE_URL`.
+- Com o domínio no ar, cadastre o site no
+  [Google Search Console](https://search.google.com/search-console), envie
+  `https://seudominio/sitemap.xml` em **Sitemaps** e peça a indexação da
+  página inicial. Crie também o **Perfil da Empresa no Google** com o mesmo
+  endereço e telefone e o link do site.
 
 ## 10. Manter o Supabase ativo (plano grátis)
 
