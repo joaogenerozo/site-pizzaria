@@ -1,8 +1,8 @@
 :root {
-  /* Paleta oficial: azul (marca), vermelho (ações e promoções) e branco */
-  --navy: #0b2a6f;
-  --blue: #1d4ed8;
-  --blue-soft: #e8efff;
+  /* Paleta oficial: azul-marinho da logo, vermelho (ações e promoções) e branco */
+  --navy: #0b1d44;
+  --blue: #1e3a8a;
+  --blue-soft: #e7ecf6;
   --brand: #c8102e;
   --brand-ink: #9b0c23;
   --brand-soft: #fde8eb;
@@ -65,7 +65,7 @@ a { color: var(--blue); }
   background:
     radial-gradient(circle at 15% 20%, rgba(255, 255, 255, .16) 0 2px, transparent 3px) 0 0 / 28px 28px,
     radial-gradient(circle at 70% 60%, rgba(255, 255, 255, .12) 0 3px, transparent 4px) 0 0 / 46px 46px,
-    linear-gradient(135deg, #0b2a6f 0%, #123b8f 55%, #1d4ed8 100%);
+    linear-gradient(135deg, #04132c 0%, #0b1d44 55%, #15306a 100%);
   border-bottom: 5px solid var(--brand);
 }
 .hero.has-cover { background-size: cover; background-position: center; }
@@ -407,15 +407,29 @@ textarea:focus, .input:focus { outline: none; border-color: var(--brand); box-sh
   max-width: calc(100% - 32px);
 }
 
+/* ---------- botão de mensagem (WhatsApp da pizzaria) ---------- */
+.wa-float {
+  position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 31;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 16px; border-radius: 999px;
+  background: #1f8f4e; color: #fff; text-decoration: none;
+  font-weight: 600; font-size: 15px;
+  box-shadow: var(--shadow-lg);
+}
+.wa-float:hover { background: #17733e; }
+.wa-float svg { width: 22px; height: 22px; flex: none; }
+/* com o carrinho aberto na barra de baixo, o botão sobe para não cobrir */
+body:has(#open-cart) .wa-float { bottom: calc(84px + env(safe-area-inset-bottom)); }
+
 /* ---------- rodapé ---------- */
-.footer { background: var(--navy); color: #dbe4f5; margin-top: 40px; border-top: 5px solid var(--brand); padding: 32px 0 140px; font-size: 14px; }
+.footer { background: #04132c; color: #d9e0ee; margin-top: 40px; border-top: 5px solid var(--brand); padding: 32px 0 140px; font-size: 14px; }
 .footer .wrap { display: grid; gap: 22px; }
 @media (min-width: 700px) { .footer .wrap { grid-template-columns: 1.3fr 1fr 1fr; } }
 .footer h2 { font: 800 22px/1.2 var(--font-display); margin: 0 0 6px; color: #fff; }
-.footer h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: #a9bbe0; margin: 0 0 8px; }
+.footer h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: #a6b4d1; margin: 0 0 8px; }
 .footer p { margin: 0 0 4px; }
 .footer a { color: #fff; display: inline-block; padding: 10px 0; } /* área de toque maior */
-.footer .fine { grid-column: 1 / -1; border-top: 1px solid #23417f; padding-top: 16px; color: #a9bbe0; font-size: 12.5px; }
+.footer .fine { grid-column: 1 / -1; border-top: 1px solid #22396b; padding-top: 16px; color: #a6b4d1; font-size: 12.5px; }
 
 /* ---------- carrinho e checkout ---------- */
 .cart-head { display: flex; align-items: center; gap: 8px; padding: 14px 14px 10px; border-bottom: 1px solid var(--line); }
@@ -466,11 +480,11 @@ select.input { appearance: auto; }
    formulários ficarem fáceis de ler e preencher.
    O painel (/admin/, body.adm) usa este mesmo CSS mas continua claro. */
 body:not(.adm) {
-  --bg: #0b2a6f;
-  --card: #143a8c;
+  --bg: #0b1d44;
+  --card: #132b5c;
   --ink: #ffffff;
-  --ink-2: #d6e0f7;
-  --ink-3: #b9c8ec;
+  --ink-2: #d6deee;
+  --ink-3: #b5c2dc;
   --line: rgba(255, 255, 255, .18);
 }
 dialog.sheet {
@@ -481,7 +495,7 @@ dialog.sheet {
   --ink-3: #5d6a86;
   --line: #e1e7f2;
 }
-.toolbar { background: rgba(11, 42, 111, .95); }
+.toolbar { background: rgba(11, 29, 68, .95); }
 .search svg, .search-clear { color: #5d6a86; }
 .search input { color: #0f1b33; border-color: transparent; }
 .search input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(200, 16, 46, .45); }
@@ -496,7 +510,7 @@ dialog.sheet {
 .badge { background: #fff; color: var(--navy); }
 body:not(.adm) .btn-ghost:hover { background: rgba(255, 255, 255, .12); }
 dialog.sheet .btn-ghost:hover { background: var(--blue-soft); }
-.skeleton { background: linear-gradient(90deg, #143a8c 25%, #1b4699 50%, #143a8c 75%) 0 0 / 200% 100%; }
+.skeleton { background: linear-gradient(90deg, #132b5c 25%, #1a3568 50%, #132b5c 75%) 0 0 / 200% 100%; }
 .toast { background: #0f1b33; border: 1px solid rgba(255, 255, 255, .25); }
 .footer { background: #071d4f; }
 .hero { border-bottom-width: 6px; }
