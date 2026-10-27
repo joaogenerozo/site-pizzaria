@@ -32,24 +32,35 @@ async function select(table, columns = '*') {
   }
 }
 
-// Carrega todas as tabelas públicas do cardápio em paralelo.
+const MENU_TABLES = [
+  'store_settings', 'opening_hours', 'payment_methods', 'delivery_zones', 'categories', 'products',
+  'pizza_sizes', 'pizza_flavors', 'flavor_prices', 'product_sizes', 'product_flavors', 'crusts',
+  'crust_prices', 'extras', 'product_extras',
+];
+
+// Cardápio inteiro num pedido só (public.menu_data): cada ida e volta até o
+// Supabase custa caro no celular. Se a função ainda não existir no banco
+// (atualização 002 não rodada), busca as tabelas uma a uma, em paralelo.
+async function fetchMenuTables() {
+  try {
+    const data = await rest('rpc/menu_data');
+    if (MENU_TABLES.every((t) => Array.isArray(data?.[t]))) return data;
+  } catch { /* cai no caminho antigo abaixo */ }
+  const rows = await Promise.all(MENU_TABLES.map((t) => select(t)));
+  return Object.fromEntries(MENU_TABLES.map((t, i) => [t, rows[i]]));
+}
+
+// Carrega todas as tabelas públicas do cardápio.
 export async function loadMenuData() {
   if (configError) throw new Error(configError);
-  const [
-    settingsRows, hours, payments, zones, categories, products, sizes, flavors,
-    flavorPrices, productSizes, productFlavors, crusts, crustPrices, extras, productExtras,
-  ] = await Promise.all([
-    select('store_settings'), select('opening_hours'), select('payment_methods'),
-    select('delivery_zones'), select('categories'), select('products'),
-    select('pizza_sizes'), select('pizza_flavors'), select('flavor_prices'),
-    select('product_sizes'), select('product_flavors'), select('crusts'),
-    select('crust_prices'), select('extras'), select('product_extras'),
-  ]);
-  const settings = settingsRows[0];
+  const d = await fetchMenuTables();
+  const settings = d.store_settings[0];
   if (!settings) throw new Error('A loja ainda não foi configurada no painel.');
   return {
-    settings, hours, payments, zones, categories, products, sizes, flavors,
-    flavorPrices, productSizes, productFlavors, crusts, crustPrices, extras, productExtras,
+    settings, hours: d.opening_hours, payments: d.payment_methods, zones: d.delivery_zones,
+    categories: d.categories, products: d.products, sizes: d.pizza_sizes, flavors: d.pizza_flavors,
+    flavorPrices: d.flavor_prices, productSizes: d.product_sizes, productFlavors: d.product_flavors,
+    crusts: d.crusts, crustPrices: d.crust_prices, extras: d.extras, productExtras: d.product_extras,
   };
 }
 

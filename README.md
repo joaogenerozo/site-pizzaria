@@ -44,7 +44,8 @@ No Supabase, abra **SQL Editor → New query** e execute, **nesta ordem**,
 o conteúdo de cada arquivo (copiar, colar, **Run**):
 
 1. `supabase/schema.sql`: tabelas, restrições, RLS em todas as tabelas,
-   políticas e a função `calculate_order`.
+   políticas e as funções `calculate_order` e `menu_data` (o cardápio inteiro
+   numa consulta só).
 2. `supabase/storage.sql`: bucket público `menu-images` (leitura pública,
    envio só por administradores).
 3. **Cardápio da Domingo's Pizzas:** `supabase/seed_domingos.sql` carrega os
@@ -52,7 +53,8 @@ o conteúdo de cada arquivo (copiar, colar, **Run**):
    cardápio impresso (veja [docs/CARDAPIO-DOMINGOS.md](docs/CARDAPIO-DOMINGOS.md)).
    Ele **substitui** o cardápio que estiver no banco.
    Se você já tinha rodado uma versão antiga do `schema.sql`, rode antes
-   `supabase/migrations/001_preco_em_confirmacao.sql`.
+   `supabase/migrations/001_preco_em_confirmacao.sql` e
+   `supabase/migrations/002_cardapio_numa_consulta.sql`.
 
    **Alternativa:** `supabase/seed_demo.sql` cria dados de demonstração
    (com aviso de "modo demonstração" no site). Se preferir começar vazio, não rode
@@ -116,7 +118,7 @@ Também há um ambiente 100% local que imita o Supabase (PostgreSQL + PostgREST
 + login falso), usado nos testes automatizados. Veja `dev/README.md`. Com ele:
 
 ```bash
-bash supabase/tests/run.sh                       # 82 testes de RLS e preço no banco
+bash supabase/tests/run.sh                       # 85 testes de RLS e preço no banco
 LOCAL_ANON_KEY=$(node dev/make-jwt.mjs anon) \
   npx playwright test                            # 68 testes no navegador (celular e desktop)
 SEED=domingos bash dev/reset-db.sh               # abre o site local com o cardápio real

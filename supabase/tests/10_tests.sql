@@ -37,6 +37,18 @@ select tst.expect_fail($q$delete from public.products$q$, 'anon exclui produtos'
 select tst.expect_fail($q$update public.store_settings set whatsapp_number='5500000000000'$q$, 'anon altera WhatsApp');
 select tst.expect_fail($q$insert into public.admins values ('22222222-2222-2222-2222-222222222222')$q$, 'anon vira admin');
 select tst.expect_fail($q$insert into storage.objects(bucket_id,name) values ('menu-images','x.png')$q$, 'anon envia imagem');
+-- cardápio numa consulta só: o mesmo que as tabelas, respeitando o RLS
+select tst.expect_rows($q$select jsonb_array_elements(public.menu_data()->'products')$q$, 9, 'menu_data só traz produtos disponíveis');
+select tst.expect_rows($q$select jsonb_array_elements(public.menu_data()->'delivery_zones')$q$, 2, 'menu_data só traz bairros ativos');
+do $$ declare t text; a jsonb; b jsonb; begin
+  foreach t in array array['store_settings','opening_hours','payment_methods','delivery_zones','categories','products',
+    'pizza_sizes','pizza_flavors','flavor_prices','product_sizes','product_flavors','crusts','crust_prices','extras','product_extras'] loop
+    select jsonb_agg(x order by x::text) into a from jsonb_array_elements(public.menu_data()->t) x;
+    execute format('select jsonb_agg(to_jsonb(r) order by to_jsonb(r)::text) from public.%I r', t) into b;
+    if a is distinct from b then raise exception 'FALHOU: menu_data difere da tabela %', t; end if;
+  end loop;
+  raise notice 'OK menu_data igual às 15 tabelas';
+end $$;
 reset role;
 
 ----------------------------------------------------------------- CLIENTE LOGADO (não admin)
