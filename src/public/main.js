@@ -70,6 +70,7 @@ function render() {
     h('main', { id: 'menu', class: 'wrap' }),
     renderFooter(),
     h('div', { class: 'cart-bar', id: 'cart-bar' }),
+    renderContactButton(),
   );
   renderMenu();
   renderCartBar();
@@ -314,6 +315,15 @@ function renderFooter() {
       hoursByDay(catalog.hours).filter((d) => d.slots.length).map((d) => h('p', {}, `${d.name}: ${d.slots.join(', ')}`)),
       !catalog.hours.length ? h('p', {}, 'Ainda não informados.') : null),
     h('p', { class: 'fine' }, `© ${year} ${s.name}. Os pedidos são enviados pelo WhatsApp e só são confirmados após a resposta da pizzaria. Seu nome, telefone e endereço ficam salvos só neste aparelho, para agilizar o próximo pedido, e vão para a pizzaria apenas na mensagem que você envia.`)));
+}
+
+// Botão fixo para falar com a pizzaria pelo WhatsApp, sem montar pedido
+function renderContactButton() {
+  const s = catalog.settings;
+  if (!s.whatsapp_number) return null;
+  const text = encodeURIComponent(`Olá, ${s.name}! Vim pelo cardápio do site e gostaria de falar com vocês.`);
+  return h('a', { class: 'wa-float', id: 'contact-whatsapp', href: `https://wa.me/${s.whatsapp_number}?text=${text}`, target: '_blank', rel: 'noopener noreferrer', 'aria-label': `Enviar mensagem para ${s.name} pelo WhatsApp` },
+    icon('chat'), h('span', {}, 'Fale conosco'));
 }
 
 // ---------------------------------------------------------------- carrinho (barra)

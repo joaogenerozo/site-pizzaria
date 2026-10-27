@@ -194,3 +194,19 @@ test('informações da loja abrem com horários e taxas', async ({ page }) => {
   await page.keyboard.press('Escape');
   await expect(page.locator('dialog[open]')).toHaveCount(0);
 });
+
+test('botão "Fale conosco" abre o WhatsApp da pizzaria e não cobre o carrinho', async ({ page }) => {
+  const contact = page.locator('#contact-whatsapp');
+  await expect(contact).toBeVisible();
+  await expect(contact).toHaveAttribute('aria-label', 'Enviar mensagem para Pizzaria Demonstração pelo WhatsApp');
+  const href = await contact.getAttribute('href');
+  expect(href).toMatch(/^https:\/\/wa\.me\/5511900000000\?text=/);
+  expect(new URL(href).searchParams.get('text')).toBe('Olá, Pizzaria Demonstração! Vim pelo cardápio do site e gostaria de falar com vocês.');
+
+  await page.locator('.card', { hasText: 'Batata frita' }).click();
+  await page.locator('.sheet-foot .btn').click();
+  await expect(page.locator('#open-cart')).toBeVisible();
+  const a = await contact.boundingBox();
+  const b = await page.locator('#open-cart').boundingBox();
+  expect(a.y + a.height, 'botão acima do carrinho').toBeLessThanOrEqual(b.y);
+});
