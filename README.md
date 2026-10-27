@@ -53,6 +53,11 @@ o conteúdo de cada arquivo (copiar, colar, **Run**):
    Ele **substitui** o cardápio que estiver no banco.
    Se você já tinha rodado uma versão antiga do `schema.sql`, rode antes
    `supabase/migrations/001_preco_em_confirmacao.sql`.
+4. **Imagens dos sabores (opcional):** envie os arquivos de `imagens/sabores/`
+   para o bucket `menu-images`, numa pasta `sabores` (**Storage → menu-images →
+   Create folder**, depois arraste os arquivos), e rode
+   `supabase/imagens_sabores.sql`. Ele só preenche produtos sem foto; as
+   ilustrações são geradas por `scripts/imagens-sabores/gerar.mjs`.
 
    **Alternativa:** `supabase/seed_demo.sql` cria dados de demonstração
    (com aviso de "modo demonstração" no site). Se preferir começar vazio, não rode
