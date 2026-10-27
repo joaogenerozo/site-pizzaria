@@ -104,3 +104,22 @@ test('15. admin confirma o preço do Lombo e o cardápio passa a aceitar o pedid
   await page.locator('.sheet-foot .btn').click({ force: true });
   await expect(page.locator('.cart-count')).toHaveText('1');
 });
+
+test('SEO: dados estruturados da pizzaria (JSON-LD) e link direto para uma categoria', async ({ page }) => {
+  await page.goto('/#pizzas-doces');
+  await expect(page.locator('section#pizzas-doces')).toBeInViewport();
+  const ld = JSON.parse(await page.locator('script#ld-restaurant').textContent());
+  expect(ld).toMatchObject({
+    '@type': 'Restaurant',
+    name: "Domingo's Pizzas",
+    servesCuisine: 'Pizza',
+    telephone: '+5535910243144',
+    address: { streetAddress: 'Avenida Mario Lanzani, 261 - Vila Maganhoto', addressCountry: 'BR' },
+  });
+  // quarta a segunda, 18h às 22h (terça fechado)
+  expect(ld.openingHoursSpecification).toHaveLength(6);
+  expect(ld.openingHoursSpecification.map((d) => d.dayOfWeek)).not.toContain('https://schema.org/Tuesday');
+  expect(ld.openingHoursSpecification[0]).toMatchObject({ opens: '18:00', closes: '22:00' });
+  await expect(page.locator('h1')).toHaveCount(1);
+  await expect(page.locator('.footer')).toContainText('Desde 2013');
+});

@@ -1,16 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
+import { supabaseUrl, supabaseAnonKey, configError } from './config.js';
 
-// Só a URL do projeto e a chave PUBLICÁVEL (anon). A segurança vem do RLS
-// no banco; esta chave pode aparecer no navegador sem risco.
-const url = import.meta.env.VITE_SUPABASE_URL;
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-export const configError = !url || !anonKey
-  ? 'O site ainda não foi configurado: faltam VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.'
-  : null;
+// Cliente completo (login, gravação, fotos): usado só pelo painel /admin/.
+export { configError };
 
 export const supabase = configError
   ? null
-  : createClient(url, anonKey, {
+  : createClient(supabaseUrl, supabaseAnonKey, {
     auth: { persistSession: true, autoRefreshToken: true, storageKey: 'cardapio-admin-auth' },
   });

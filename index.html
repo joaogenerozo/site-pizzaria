@@ -4,24 +4,61 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#04132c" />
-    <meta name="description" content="Cardápio da Domingo's Pizzas: escolha sua pizza e envie o pedido pelo WhatsApp. Avenida Mario Lanzani, 261 - Vila Maganhoto." />
-    <title>Domingo's Pizzas · Cardápio</title>
-    <!-- Prévia do link ao compartilhar (WhatsApp, Instagram, Facebook). og:url e og:image
-         são inseridos no build a partir de VITE_SITE_URL (precisam de endereço completo). -->
+    <title>Domingo's Pizzas | Cardápio e pedidos pelo WhatsApp</title>
+    <meta name="description" content="Cardápio da Domingo's Pizzas: mais de 50 sabores em P, M e G, meio a meio e bordas recheadas. Peça pelo WhatsApp. Av. Mario Lanzani, 261 - Vila Maganhoto." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <!-- Prévia do link ao compartilhar (WhatsApp, Instagram, Facebook). O endereço canônico,
+         og:url e og:image são inseridos no build a partir de VITE_SITE_URL (precisam de endereço completo). -->
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="pt_BR" />
     <meta property="og:site_name" content="Domingo's Pizzas" />
-    <meta property="og:title" content="Domingo's Pizzas · Cardápio" />
-    <meta property="og:description" content="Escolha sua pizza e envie o pedido pelo WhatsApp." />
+    <meta property="og:title" content="Domingo's Pizzas | Cardápio e pedidos pelo WhatsApp" />
+    <meta property="og:description" content="Mais de 50 sabores de pizza, meio a meio e bordas recheadas. Escolha no cardápio e envie o pedido pelo WhatsApp." />
+    <meta property="og:image:alt" content="Logo da Domingo's Pizzas" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Domingo's Pizzas | Cardápio e pedidos pelo WhatsApp" />
+    <meta name="twitter:description" content="Mais de 50 sabores de pizza, meio a meio e bordas recheadas. Escolha no cardápio e envie o pedido pelo WhatsApp." />
     <link rel="icon" href="./favicon.png" type="image/png" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;500;600;700&display=swap" />
+    <!-- Fonte do texto baixada junto com a página: o texto aparece logo na fonte certa -->
+    <link rel="preload" href="./src/assets/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
   </head>
   <body>
-    <noscript>Ative o JavaScript para ver o cardápio.</noscript>
-    <div id="app" aria-live="polite"></div>
+    <a class="skip-link" href="#menu">Pular para o cardápio</a>
+    <div id="app" aria-live="polite">
+      <!-- Esqueleto mostrado enquanto o cardápio carrega. O topo com a marca já é o
+           definitivo: o JavaScript reaproveita a faixa (src/public/main.js). -->
+      <header class="hero">
+        <div class="brand-banner">
+          <div class="brand-lockup" role="img" aria-label="Logo da Domingo's Pizzas">
+            <img class="brand-symbol" src="./src/assets/simbolo-domingos.webp" alt="Símbolo da Domingo's Pizzas: fatias de pizza em um dominó" width="210" height="220" />
+            <img class="brand-wordmark" src="./src/assets/marca-domingos.webp" alt="Domingo's Pizzas" width="643" height="181" fetchpriority="high" />
+          </div>
+        </div>
+        <div class="wrap hero-inner">
+          <div class="brand-row">
+            <div>
+              <h1 class="brand-name sr-only">Domingo's Pizzas</h1>
+              <p class="brand-tagline">O sabor que reúne quem você ama!</p>
+            </div>
+          </div>
+          <div class="meta"><span class="pill skeleton skeleton-pill"></span><span class="pill skeleton skeleton-pill"></span></div>
+          <div class="skeleton skeleton-info"></div>
+        </div>
+      </header>
+      <div class="toolbar"><div class="wrap"><div class="skeleton skeleton-search"></div><div class="skeleton skeleton-cats"></div></div></div>
+      <main id="menu" class="wrap" aria-busy="true" data-shell>
+        <noscript><p>Ative o JavaScript para ver o cardápio e fazer o pedido.</p></noscript>
+        <p class="sr-only">Carregando cardápio…</p>
+        <div class="section">
+          <div class="skeleton skeleton-title"></div>
+          <div class="grid">
+            <div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div>
+          </div>
+        </div>
+      </main>
+    </div>
     <script type="module" src="./src/public/main.js"></script>
   </body>
 </html>

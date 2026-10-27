@@ -175,7 +175,7 @@ function renderShell() {
   const main = h('main', { class: 'adm-main', id: 'adm-main' });
   add(clear(root),
     h('header', { class: 'adm-top' },
-      h('strong', {}, 'Painel'),
+      h('h1', { class: 'adm-title' }, 'Painel'),
       h('div', { class: 'adm-top-actions' },
         h('a', { href: '../', target: '_blank', rel: 'noopener', class: 'link-btn light' }, 'Ver cardápio'),
         h('button', { type: 'button', class: 'link-btn light', id: 'logout', onclick: logout }, 'Sair'))),

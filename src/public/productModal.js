@@ -4,6 +4,7 @@ import { formatCents } from '../lib/money.js';
 import { crustsForSize } from '../lib/catalog.js';
 import { priceItem, MULTI_FLAVOR_RULES } from '../lib/pricing.js';
 import { MAX_NOTES, MAX_QTY } from '../lib/cart.js';
+import { productImageAlt } from '../lib/text.js';
 
 // Abre a janela de personalização de um produto.
 // initial: seleção existente (edição de item do carrinho). onConfirm(selection).
@@ -33,7 +34,7 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
   const confirmBtn = h('button', { type: 'button', class: 'btn', onclick: confirm }, h('span', {}, confirmLabel), totalOut);
 
   const image = product.image_url
-    ? h('img', { class: 'sheet-hero', src: product.image_url, alt: '', loading: 'lazy' })
+    ? h('img', { class: 'sheet-hero', src: product.image_url, alt: productImageAlt(product.name, categoryName), decoding: 'async' })
     : h('div', { class: 'sheet-hero placeholder' }, illustration(product, categoryName));
 
   dialog.append(

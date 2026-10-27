@@ -190,7 +190,7 @@ export function crudView(cfg) {
 function imageUploader(urlControl, uploaded) {
   const file = h('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp', class: 'sr-only', id: `up-${Math.random().toString(36).slice(2)}` });
   const status = h('small', { class: 'adm-help' });
-  const preview = h('img', { class: 'adm-preview', alt: '', hidden: !urlControl.control.value });
+  const preview = h('img', { class: 'adm-preview', alt: 'Prévia da foto', hidden: !urlControl.control.value });
   if (urlControl.control.value) preview.src = urlControl.control.value;
   urlControl.control.addEventListener('change', () => {
     preview.hidden = !/^https:\/\//.test(urlControl.control.value);

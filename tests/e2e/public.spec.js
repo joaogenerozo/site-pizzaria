@@ -210,3 +210,67 @@ test('botão "Fale conosco" abre o WhatsApp da pizzaria e não cobre o carrinho'
   const b = await page.locator('#open-cart').boundingBox();
   expect(a.y + a.height, 'botão acima do carrinho').toBeLessThanOrEqual(b.y);
 });
+
+test('SEO: um h1 só, títulos em ordem, título da aba e nenhum JSON-LD com dados fictícios', async ({ page }) => {
+  await expect(page.locator('h1')).toHaveCount(1);
+  await expect(page).toHaveTitle('Pizzaria Demonstração | Cardápio e pedidos pelo WhatsApp');
+  // sem pular nível: h1 -> h2 -> h3
+  const levels = await page.locator('h1, h2, h3, h4, h5, h6').evaluateAll((els) => els.map((e) => Number(e.tagName[1])));
+  expect(levels[0]).toBe(1);
+  levels.forEach((l, i) => { if (i) expect(l - levels[i - 1], `nível ${i}`).toBeLessThanOrEqual(1); });
+  await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(0);
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /^index, follow/);
+});
+
+test('SEO: todas as imagens têm texto alternativo, inclusive fotos de produto', async ({ page }) => {
+  const photo = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  await page.route('**/rest/v1/products?*', async (route) => {
+    const rows = await (await route.fetch()).json();
+    for (const p of rows) if (p.name === 'Batata frita') p.image_url = photo;
+    await route.fulfill({ json: rows });
+  });
+  await page.reload();
+  await expect(page.locator('.card', { hasText: 'Batata frita' }).locator('img.thumb')).toHaveAttribute('alt', 'Batata frita - Porções');
+  const missing = await page.locator('img').evaluateAll((imgs) => imgs.filter((i) => !i.getAttribute('alt')?.trim()).map((i) => i.outerHTML));
+  expect(missing).toEqual([]);
+  await page.locator('.card', { hasText: 'Batata frita' }).click();
+  await expect(page.locator('dialog[open] img.sheet-hero')).toHaveAttribute('alt', 'Batata frita - Porções');
+});
+
+test('links internos: categorias com âncora legível, link direto e link antigo', async ({ page }) => {
+  const bebidas = page.locator('.cat-link', { hasText: 'Bebidas' });
+  await expect(bebidas).toHaveAttribute('href', '#bebidas');
+  await expect(page.locator('section#bebidas .section-title')).toHaveText('Bebidas');
+  await bebidas.click();
+  await expect(page).toHaveURL(/#bebidas$/);
+
+  // link compartilhado abre direto na categoria
+  await page.goto('/#porcoes');
+  await expect(page.locator('section#porcoes')).toBeInViewport();
+  await expect(page.locator('.cat-link[aria-current="true"]')).toHaveText('Porções');
+
+  // link antigo (#cat-<id>) continua funcionando e vira a âncora nova
+  const id = await page.locator('section#bebidas').getAttribute('data-cat');
+  await page.goto(`/#cat-${id}`);
+  await expect(page.locator('section#bebidas')).toBeInViewport();
+  await expect(page).toHaveURL(/#bebidas$/);
+});
+
+test('links internos: rodapé lista as categorias e leva até elas, mesmo com busca ativa', async ({ page }) => {
+  const footerLinks = page.locator('.footer-nav a');
+  await expect(footerLinks).toHaveCount(7);
+  await page.locator('#search').fill('aneis');
+  await expect(page.locator('section#doces')).toHaveCount(0);
+  await footerLinks.filter({ hasText: 'Doces' }).click();
+  await expect(page.locator('#search')).toHaveValue('');
+  await expect(page.locator('section#doces')).toBeInViewport();
+  await expect(page).toHaveURL(/#doces$/);
+});
+
+test('link "Pular para o cardápio" aparece no teclado e leva ao cardápio', async ({ page }) => {
+  await page.keyboard.press('Tab');
+  const skip = page.locator('.skip-link');
+  await expect(skip).toBeFocused();
+  await expect(skip).toBeInViewport();
+  await expect(skip).toHaveAttribute('href', '#menu');
+});
