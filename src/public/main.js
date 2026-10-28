@@ -3,7 +3,7 @@ import { h, clear, add } from '../lib/dom.js';
 import { icon, illustration, pizzaArt } from '../lib/icons.js';
 import { formatCents, formatPrice } from '../lib/money.js';
 import { matchesSearch, normalize, productImageAlt } from '../lib/text.js';
-import { openStatus, describeStatus, hoursByDay, nowInZone } from '../lib/hours.js';
+import { openStatus, describeStatus, hoursByDay, nowInZone, WEEKDAYS } from '../lib/hours.js';
 import { loadMenuData } from '../lib/api.js';
 import { buildCatalog } from '../lib/catalog.js';
 import { priceItem } from '../lib/pricing.js';
@@ -236,6 +236,7 @@ function renderMenu() {
       h('p', {}, 'Ainda não há produtos disponíveis. Volte em breve!')));
     return;
   }
+  if (!query.trim()) main.append(...[renderWeeklyPromos()].filter(Boolean));
   let shown = 0;
   for (const c of catalog.categories) {
     const items = c.products.filter((p) => matchesSearch(query, p.name, p.description, c.name,
@@ -254,17 +255,75 @@ function renderMenu() {
   }
 }
 
+// ---------------------------------------------------------------- promoções da semana
+// Ordem de exibição: segunda a domingo
+const PROMO_DAYS = [1, 2, 3, 4, 5, 6, 0];
+const WEEKDAY_FULL = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+
+// Faixa no topo do cardápio: as pizzas em promoção hoje (clicáveis) e a lista da semana
+function renderWeeklyPromos() {
+  const all = catalog.weeklyPromos;
+  if (!all.length) return null;
+  const todays = catalog.todayPromos;
+  const sameOffer = (list) => list.length && list.every((w) => w.size.id === list[0].size.id && w.priceCents === list[0].priceCents);
+  const offerText = (list) => (sameOffer(list) ? `pizza ${list[0].size.name} por ${formatCents(list[0].priceCents)}` : 'preços especiais');
+  const flavorList = (list) => list.map((w) => w.flavor.name).join(', ').replace(/, ([^,]*)$/, ' e $1');
+
+  const week = h('details', { class: 'promo-week' },
+    h('summary', {}, 'Promoções de cada dia da semana'),
+    h('table', { class: 'hours-table' }, h('tbody', {}, PROMO_DAYS.map((d) => {
+      const list = all.filter((w) => w.weekday === d);
+      return h('tr', { class: d === catalog.today ? 'today' : '' },
+        h('td', {}, WEEKDAYS[d]),
+        h('td', {}, list.length ? `${flavorList(list)} · ${offerText(list)}` : 'Sem promoção'));
+    }))));
+
+  if (!todays.length) {
+    return h('section', { class: 'promo-today is-empty', 'aria-label': 'Promoções da semana' },
+      h('p', { class: 'promo-sub' }, `Hoje (${WEEKDAY_FULL[catalog.today]}) não tem promoção do dia.`), week);
+  }
+  return h('section', { class: 'promo-today', id: 'promocao-de-hoje', 'aria-labelledby': 'promo-title' },
+    h('span', { class: 'badge' }, 'Promoção de hoje'),
+    h('h2', { class: 'promo-title', id: 'promo-title' },
+      sameOffer(todays) ? `${capitalize(WEEKDAY_FULL[catalog.today])}: ${offerText(todays)}` : `Promoção de ${WEEKDAY_FULL[catalog.today]}`),
+    h('p', { class: 'promo-sub' }, 'Escolha um destes sabores:'),
+    h('div', { class: 'promo-list' }, todays.map((w) => {
+      const label = [h('span', { class: 'promo-flavor' }, w.flavor.name),
+        h('span', { class: 'promo-price' }, `${w.size.name} `, h('span', { class: 'price-old' }, formatCents(w.regularCents)), ` ${formatCents(w.priceCents)}`)];
+      if (!w.product) return h('span', { class: 'promo-item' }, label);
+      const category = catalog.categories.find((c) => c.id === w.product.category_id);
+      return h('button', {
+        type: 'button', class: 'promo-item',
+        'aria-label': `${w.flavor.name}, ${w.size.name} por ${formatCents(w.priceCents)} (de ${formatCents(w.regularCents)})`,
+        onclick: () => openProductModal({
+          catalog, productId: w.product.id, categoryName: category?.name ?? '', initial: { sizeId: w.size.id },
+          onConfirm: (sel) => { cart.add(sel); toast(`${w.product.name} adicionado ao carrinho`); },
+        }),
+      }, label);
+    })),
+    h('p', { class: 'promo-note' }, 'Vale só hoje, no tamanho indicado. Na meio a meio, vale quando os dois sabores estão na promoção.'),
+    week);
+}
+
+const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
 function productCard(p, category) {
   const hasPromo = p.kind === 'simple' && !p.price_review && p.promoCents !== null;
   let pizzaHint = null;
   let sizePrices = null;
+  let weeklyPromo = false;
   if (p.kind === 'pizza' && p.sizes.length) {
     const only = p.flavors.length === 1 ? p.flavors[0] : null;
-    if (only && !only.price_review) {
-      // Card de um sabor: mostra o preço de cada tamanho (ex.: P R$ 40,00 · M R$ 45,00 · G R$ 55,90)
+    weeklyPromo = !!only && p.sizes.some((s) => catalog.flavorPrice(only.id, s.id)?.weekly);
+    if (only && (!only.price_review || weeklyPromo)) {
+      // Card de um sabor: mostra o preço de cada tamanho (ex.: P R$ 40,00 · M R$ 45,00 · G R$ 55,90).
+      // Sabor em confirmação só mostra o tamanho da promoção de hoje (o único com preço definido).
       sizePrices = p.sizes.map((s) => {
         const fp = catalog.flavorPrice(only.id, s.id);
-        return fp ? h('span', { class: 'size-price' }, h('b', {}, s.name), ` ${formatCents(fp.effectiveCents)}`) : null;
+        if (!fp || (only.price_review && !fp.weekly)) return null;
+        return fp.weekly
+          ? h('span', { class: 'size-price promo' }, h('b', {}, s.name), ' ', h('s', { class: 'price-old' }, formatCents(fp.priceCents)), ` ${formatCents(fp.effectiveCents)}`)
+          : h('span', { class: 'size-price' }, h('b', {}, s.name), ` ${formatCents(fp.effectiveCents)}`);
       }).filter(Boolean);
     } else if (!only) {
       const maxF = Math.max(...p.sizes.map((s) => s.max_flavors));
@@ -276,11 +335,12 @@ function productCard(p, category) {
   // Card = artigo com título; o botão fica no título e cobre o card inteiro (ver .card-open no CSS)
   return h('article', { class: 'card', dataset: { product: p.id } },
   h('div', { class: 'card-body' },
-    p.badge ? h('span', { class: `badge${hasPromo || /promo/i.test(p.badge) ? ' promo' : ''}` }, p.badge) : null,
+    weeklyPromo ? h('span', { class: 'badge promo' }, 'Promoção de hoje')
+      : p.badge ? h('span', { class: `badge${hasPromo || /promo/i.test(p.badge) ? ' promo' : ''}` }, p.badge) : null,
     h('h3', { class: 'card-name' }, h('button', {
       type: 'button', class: 'card-open',
       'aria-label': p.fromCents === null ? `${p.name}, preço em confirmação`
-        : sizePrices?.length ? `${p.name}, ${sizePrices.map((el) => el.textContent).join(', ')}`
+        : sizePrices?.length ? `${p.name}${weeklyPromo ? ', promoção de hoje' : ''}, ${sizePrices.map((el) => el.textContent).join(', ')}`
           : `${p.name}, ${p.kind === 'pizza' ? 'a partir de ' : ''}${formatCents(p.fromCents)}`,
       onclick: () => openProductModal({
         catalog, productId: p.id, categoryName: category.name,

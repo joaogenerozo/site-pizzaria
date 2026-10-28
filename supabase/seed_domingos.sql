@@ -362,6 +362,30 @@ insert into public.extras (name, price, sort_order) values
 insert into public.product_extras (product_id, extra_id)
 select p.id, e.id from public.products p cross join public.extras e where p.kind = 'pizza';
 
+-- Promoções da semana: G por R$ 50,00 (0 = domingo)
+insert into public.weekly_promotions (weekday, flavor_id, size_id, price, sort_order)
+select v.weekday, f.id, s.id, v.price, v.ord from (values
+  (1, 'Portuguesa', 50.00, 1),
+  (1, 'Bacon', 50.00, 2),
+  (1, '4 Queijos', 50.00, 3),
+  (3, 'Mussarela', 50.00, 1),
+  (3, 'Bauru', 50.00, 2),
+  (3, 'Siciliana', 50.00, 3),
+  (4, 'Strogonoff de Boi', 50.00, 1),
+  (4, 'Strogonoff de Frango', 50.00, 2),
+  (4, 'Frango com Catupiry', 50.00, 3),
+  (5, 'Brócolis Especial', 50.00, 1),
+  (5, 'Calabresa da Casa', 50.00, 2),
+  (6, 'Portuguesa', 50.00, 1),
+  (6, 'Milho', 50.00, 2),
+  (6, 'Lombo Requeijão', 50.00, 3),
+  (0, 'Mussarela', 50.00, 1),
+  (0, 'Bacon e Palmito', 50.00, 2),
+  (0, 'Banana Nevada', 50.00, 3)
+) as v(weekday, flavor, price, ord)
+join public.pizza_flavors f on f.name = v.flavor
+join public.pizza_sizes s on s.name = 'G';
+
 commit;
 
 -- Conferência rápida (deve mostrar 51 sabores e 4 com preço em confirmação):

@@ -123,9 +123,22 @@
     { "nome": "Cebola", "preco": 5.00 },
     { "nome": "Tomate", "preco": 5.00 }
   ],
+  "promocoes_semanais": {
+    "fonte": "Pedido de João Paulo em 28/10/2026: 3 sabores por dia por R$ 50,00. Terça não tem (pizzaria fechada).",
+    "tamanho": "G",
+    "preco": 50.00,
+    "dias": [
+      { "dia": "segunda", "sabores": ["Portuguesa", "Bacon", "4 Queijos"] },
+      { "dia": "quarta", "sabores": ["Mussarela", "Bauru", "Siciliana"] },
+      { "dia": "quinta", "sabores": ["Strogonoff de Boi", "Strogonoff de Frango", "Frango com Catupiry"] },
+      { "dia": "sexta", "sabores": ["Brócolis Especial", "Calabresa da Casa"] },
+      { "dia": "sábado", "sabores": ["Portuguesa", "Milho", "Lombo Requeijão"] },
+      { "dia": "domingo", "sabores": ["Mussarela", "Bacon e Palmito", "Banana Nevada"] }
+    ]
+  },
   "pendencias": [
     "O cardápio impresso não diz se as bordas têm o mesmo preço em P, M e G; o site usa o mesmo valor nos três tamanhos.",
     "Taxas de entrega por bairro não constam no cardápio; o site mostra \"taxa a combinar\".",
-    "\"Todos os dias duas pizzas na promoção\": o cardápio não diz quais; nenhuma promoção foi cadastrada."
+    "Promoção de sexta: \"Marguerita\" não está no cardápio (falta o sabor e o preço normal) e \"brócolis com bacon\" foi lido como Brócolis Especial."
   ]
 }

@@ -280,7 +280,10 @@ export function openCartDrawer({ catalog, cart }) {
       notes: form.notes,
       items: cart.items.map((it, i) => {
         const line = quote.items[i];
-        return { ...describeSelection(catalog, it), quantity: it.quantity, unitCents: toCents(line.unit_price), lineCents: toCents(line.line_total) };
+        return {
+          ...describeSelection(catalog, it), quantity: it.quantity, unitCents: toCents(line.unit_price), lineCents: toCents(line.line_total),
+          weeklyPromo: line.weekly_promo === true,
+        };
       }),
       subtotalCents: toCents(quote.subtotal),
       discountCents: toCents(quote.discount),
@@ -301,7 +304,8 @@ export function openCartDrawer({ catalog, cart }) {
       !status.open && status.known ? h('p', { class: 'notice warn' }, 'A pizzaria está fechada agora. Você pode enviar a mensagem, mas ela só será vista quando abrirmos.') : null,
       h('ul', { class: 'cart-list' }, order.items.map((it) => h('li', { class: 'cart-item' },
         h('div', { class: 'cart-item-main' }, h('p', { class: 'cart-item-name' }, `${it.quantity} × ${it.name}`), itemDetails(it)),
-        h('div', { class: 'cart-item-side' }, h('span', { class: 'price' }, formatCents(it.lineCents)))))),
+        h('div', { class: 'cart-item-side' }, h('span', { class: 'price' }, formatCents(it.lineCents)),
+          it.weeklyPromo ? h('span', { class: 'badge promo' }, 'Promoção do dia') : null)))),
       h('div', { class: 'totals' },
         row('Subtotal', formatCents(order.subtotalCents)),
         order.discountCents > 0 ? row('Desconto', `- ${formatCents(order.discountCents)}`, 'discount') : null,

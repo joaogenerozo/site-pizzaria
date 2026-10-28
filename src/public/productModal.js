@@ -89,8 +89,13 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
 
   const singleFlavor = product.kind === 'pizza' && product.flavors.length === 1;
   const singleReview = singleFlavor && product.flavors[0].price_review;
+  // Sabor em confirmação com promoção de hoje: dá para pedir só no tamanho da promoção (preço definido)
+  const weeklyOnly = (sizeId) => !!catalog.flavorPrice(product.flavors[0].id, sizeId)?.weekly;
+  const reviewOpen = singleReview && product.sizes.some((s) => weeklyOnly(s.id));
+  if (reviewOpen && sel.sizeId && !weeklyOnly(sel.sizeId)) sel.sizeId = null;
+  if (reviewOpen && !sel.sizeId) sel.sizeId = product.sizes.find((s) => weeklyOnly(s.id)).id;
   // Preço em confirmação: não dá para pedir, e o botão já diz o motivo (em vez de "Escolha o tamanho")
-  const blocked = (product.kind === 'simple' && product.price_review) || singleReview;
+  const blocked = (product.kind === 'simple' && product.price_review) || (singleReview && !reviewOpen);
 
   const currentSize = () => product.sizes.find((s) => s.id === sel.sizeId) || null;
 
@@ -105,7 +110,8 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
       legend('Tamanho', 'escolha 1', true, !!sel.sizeId),
       product.sizes.map((s) => {
         const from = minFlavorPrice(s.id);
-        const input = h('input', { type: 'radio', name: 'pm-size', value: s.id, checked: sel.sizeId === s.id });
+        const sizeClosed = reviewOpen && !weeklyOnly(s.id);
+        const input = h('input', { type: 'radio', name: 'pm-size', value: s.id, checked: sel.sizeId === s.id, disabled: sizeClosed });
         input.addEventListener('change', () => {
           sel.sizeId = s.id;
           // ao trocar de tamanho, respeita o novo limite e remove borda sem preço no tamanho
@@ -115,12 +121,12 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
         });
         const sub = [s.slices ? `${s.slices} pedaços` : null, singleFlavor ? null : `até ${s.max_flavors} sabor${s.max_flavors > 1 ? 'es' : ''}`].filter(Boolean).join(' · ');
         let price = null;
-        if (singleReview) price = reviewTag();
+        if (singleReview && (!reviewOpen || sizeClosed)) price = reviewTag();
         else if (singleFlavor) {
           const fp = catalog.flavorPrice(product.flavors[0].id, s.id);
           if (fp) price = priceTag(fp.effectiveCents, fp.promoCents !== null ? fp.priceCents : null);
         } else if (from !== null) price = h('span', { class: 'opt-price' }, `a partir de ${formatCents(from)}`);
-        return h('label', { class: 'opt' }, input,
+        return h('label', { class: `opt${sizeClosed ? ' disabled' : ''}` }, input,
           h('span', { class: 'opt-text' }, h('span', { class: 'opt-name' }, s.name), h('span', { class: 'opt-sub' }, sub)),
           price);
       }));
@@ -130,7 +136,7 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
     let min = null;
     for (const f of product.flavors) {
       const fp = catalog.flavorPrice(f.id, sizeId);
-      if (fp && !f.price_review && (min === null || fp.effectiveCents < min)) min = fp.effectiveCents;
+      if (fp && (!f.price_review || fp.weekly) && (min === null || fp.effectiveCents < min)) min = fp.effectiveCents;
     }
     return min;
   }
@@ -152,7 +158,8 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
       if (size && !fp) continue;
       const checked = sel.flavorIds.includes(f.id);
       const full = sel.flavorIds.length >= max;
-      const disabled = !size || f.price_review || (!checked && full);
+      const review = f.price_review && !fp?.weekly;
+      const disabled = !size || review || (!checked && full);
       const input = h('input', { type: 'checkbox', value: f.id, checked, disabled });
       input.addEventListener('change', () => {
         if (input.checked) {
@@ -163,13 +170,13 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
         } else sel.flavorIds = sel.flavorIds.filter((id) => id !== f.id);
         renderGroups(); update();
       });
-      if (max === 1 && size && !f.price_review) input.disabled = false;
+      if (max === 1 && size && !review) input.disabled = false;
       const order = sel.flavorIds.indexOf(f.id);
       group.append(h('label', { class: `opt${input.disabled ? ' disabled' : ''}` }, input,
         h('span', { class: 'opt-text' },
           h('span', { class: 'opt-name' }, f.name, order >= 0 && max > 1 ? ' ' : null, order >= 0 && max > 1 ? h('span', { class: 'opt-order', 'aria-label': `sabor ${order + 1}` }, `${order + 1}`) : null),
           f.description ? h('span', { class: 'opt-sub' }, f.description) : null),
-        f.price_review ? reviewTag() : fp ? priceTag(fp.effectiveCents, fp.promoCents !== null ? fp.priceCents : null) : null));
+        review ? reviewTag() : fp ? priceTag(fp.effectiveCents, fp.promoCents !== null ? fp.priceCents : null) : null));
     }
     return group;
   }

@@ -55,7 +55,6 @@ Nada disso foi inventado. Enquanto você não informar, o site funciona assim:
 |---|---|---|
 | Taxa de entrega | Região "Entrega (taxa a combinar)". O cliente digita o bairro e o total sai **sem a taxa**, e a mensagem diz "a combinar com a pizzaria" | Bairros e taxas (ou uma taxa fixa) |
 | Preço das bordas por tamanho | Mesmo valor em P, M e G | A borda custa igual nos três tamanhos? |
-| "Todos os dias duas pizzas na promoção" | Nenhuma promoção cadastrada | Quais pizzas e qual preço, se quiser no site |
 | Pedido mínimo e tempo de entrega | Sem mínimo; tempo não exibido | Valores, se houver |
 | Fotos e logo | Ilustração própria do site | Logo e fotos que vocês tenham direito de usar |
 
@@ -98,6 +97,34 @@ alterado pelo painel.
   Exemplo: G Calabresa (55,00) + Strogonoff de Boi (70,00) = R$ 70,00.
 - **Formas de pagamento:** Pix, Dinheiro (pergunta o troco), Cartão de crédito e
   Cartão de débito.
+
+## Promoções da semana (pedido de 28/10/2026)
+
+Três sabores por dia, **pizza G por R$ 50,00**. O tamanho G foi o escolhido
+porque em P e M vários desses sabores já custam R$ 50,00 ou menos.
+
+| Dia | Sabores |
+|---|---|
+| Segunda | Portuguesa, Bacon, 4 Queijos |
+| Terça | sem promoção (pizzaria fechada) |
+| Quarta | Mussarela, Bauru, Siciliana |
+| Quinta | Strogonoff de Boi (pedido como "strogonoff de carne"), Strogonoff de Frango, Frango com Catupiry |
+| Sexta | Brócolis Especial (pedido como "brócolis com bacon"), Calabresa da Casa · **Marguerita não existe no cardápio** |
+| Sábado | Portuguesa, Milho, Lombo Requeijão |
+| Domingo | Mussarela, Bacon e Palmito (pedido como "palmito com bacon"), Banana Nevada |
+
+- Vale só no dia, pelo horário de Brasília, e o **banco** aplica o preço
+  (`calculate_order`), então carrinho, revisão e WhatsApp mostram o mesmo valor.
+  A mensagem marca o item com "(promoção do dia)".
+- Borda e adicionais continuam cobrados à parte.
+- Meio a meio: com a regra do sabor mais caro, sai por R$ 50,00 quando os dois
+  sabores estão na promoção do dia.
+- **Mussarela** está com "preço em confirmação", mas na quarta e no domingo pode
+  ser pedida no G por R$ 50,00 (o preço da promoção é definido). P e M continuam bloqueados.
+- No site: faixa "Promoção de hoje" no topo do cardápio (com a lista dos outros
+  dias), selo "Promoção de hoje" no card e o preço antigo riscado.
+- Para mudar: painel `/admin/` → aba **Promoções da semana** (dia, sabor,
+  tamanho, preço, ativa). Vale na hora.
 
 ## Testes feitos (ambiente local que imita o Supabase)
 

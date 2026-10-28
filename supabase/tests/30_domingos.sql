@@ -46,7 +46,17 @@ do $$ begin
   if (select string_agg(name, ',' order by name) from public.pizza_flavors where price_review) <> 'Frango Barbecue,Lombo,Milho Especial,Mussarela'
     then raise exception 'FALHOU: sabores em confirmação errados'; end if;
   raise notice 'OK carga: 51 sabores, 153 preços, 12 categorias, 4 em confirmação, 4 pagamentos, meio a meio com 51 sabores';
+  if (select count(*) from public.weekly_promotions w join public.pizza_sizes s on s.id = w.size_id where s.name = 'G' and w.price = 50) <> 17
+    then raise exception 'FALHOU: esperado 17 promoções da semana (G por 50,00)'; end if;
+  if exists (select 1 from public.weekly_promotions where weekday = 2) then raise exception 'FALHOU: terça não tem promoção'; end if;
+  if (select string_agg(f.name, ',' order by w.sort_order) from public.weekly_promotions w join public.pizza_flavors f on f.id = w.flavor_id where w.weekday = 1)
+     <> 'Portuguesa,Bacon,4 Queijos' then raise exception 'FALHOU: promoções de segunda erradas'; end if;
+  raise notice 'OK carga: 17 promoções da semana, G por R$ 50,00, nenhuma na terça';
 end $$;
+-- Os testes de preço abaixo não podem depender do dia em que rodam: as
+-- promoções voltam no fim, criadas para "hoje" e "amanhã".
+create table tst.promos_seed as select * from public.weekly_promotions;
+delete from public.weekly_promotions;
 
 set role anon;
 do $$ begin
@@ -88,3 +98,60 @@ do $$ begin
   if (select price_review from public.pizza_flavors where name = 'Lombo') then raise notice 'OK (sem efeito) visitante tirar marcação';
   else raise exception 'FALHOU: visitante alterou a marcação'; end if;
 end $$;
+
+-- ---------------------------------------------------------------- promoções da semana
+reset role;
+-- "hoje" no fuso da loja, como o banco calcula
+create or replace function tst.dow(add int default 0) returns smallint language sql as $$
+  select ((extract(dow from now() at time zone 'America/Sao_Paulo')::int + add) % 7)::smallint $$;
+insert into public.weekly_promotions (weekday, flavor_id, size_id, price)
+select tst.dow(), f.id, s.id, 50 from public.pizza_flavors f, public.pizza_sizes s
+ where s.name = 'G' and f.name in ('Portuguesa', 'Siciliana', 'Mussarela', 'Bauru', 'Calabresa');
+-- promoção de amanhã não vale hoje
+insert into public.weekly_promotions (weekday, flavor_id, size_id, price)
+select tst.dow(1), f.id, s.id, 40 from public.pizza_flavors f, public.pizza_sizes s where s.name = 'G' and f.name = 'Atum';
+-- promoção desativada não vale
+insert into public.weekly_promotions (weekday, flavor_id, size_id, price, active)
+select tst.dow(), f.id, s.id, 30, false from public.pizza_flavors f, public.pizza_sizes s where s.name = 'G' and f.name = 'Churrasco';
+-- "promoção" mais cara que o preço normal não aumenta o preço (Calabresa P = 37)
+insert into public.weekly_promotions (weekday, flavor_id, size_id, price)
+select tst.dow(), f.id, s.id, 50 from public.pizza_flavors f, public.pizza_sizes s where s.name = 'P' and f.name = 'Calabresa';
+set role anon;
+
+select tst.ok('promoção de hoje: Portuguesa G 55,90 -> 50', $$[{"product_id":{p:Portuguesa},"quantity":1,"size_id":{s:G},"flavor_ids":[{f:Portuguesa}]}]$$, 'pickup', null, 'subtotal', 50);
+select tst.ok('promoção só no tamanho G: Portuguesa M = 45', $$[{"product_id":{p:Portuguesa},"quantity":1,"size_id":{s:M},"flavor_ids":[{f:Portuguesa}]}]$$, 'pickup', null, 'subtotal', 45);
+select tst.ok('promoção + borda + adicional: Siciliana G 50 + cheddar 18 + bacon 10 = 78 (x2 = 156)', $$[{"product_id":{p:Siciliana},"quantity":2,"size_id":{s:G},"flavor_ids":[{f:Siciliana}],"crust_id":{c:Borda de cheddar},"extra_ids":[{e:Bacon}]}]$$, 'pickup', null, 'subtotal', 156);
+select tst.ok('Mussarela em confirmação pode ser pedida no dia da promoção (G 50)', $$[{"product_id":{p:Mussarela},"quantity":1,"size_id":{s:G},"flavor_ids":[{f:Mussarela}]}]$$, 'pickup', null, 'subtotal', 50);
+select tst.err('Mussarela M continua em confirmação', $$[{"product_id":{p:Mussarela},"quantity":1,"size_id":{s:M},"flavor_ids":[{f:Mussarela}]}]$$, 'pickup');
+select tst.ok('meio a meio G com os dois sabores na promoção = 50', $$[{"product_id":{p:Pizza 2 sabores (meio a meio)},"quantity":1,"size_id":{s:G},"flavor_ids":[{f:Portuguesa},{f:Bauru}]}]$$, 'pickup', null, 'subtotal', 50);
+select tst.ok('meio a meio G promoção + Strogonoff de Boi 70 = 70 (mais caro)', $$[{"product_id":{p:Pizza 2 sabores (meio a meio)},"quantity":1,"size_id":{s:G},"flavor_ids":[{f:Portuguesa},{f:Strogonoff de Boi}]}]$$, 'pickup', null, 'subtotal', 70);
+select tst.ok('promoção de amanhã não vale hoje: Atum G = 65', $$[{"product_id":{p:Atum},"quantity":1,"size_id":{s:G},"flavor_ids":[{f:Atum}]}]$$, 'pickup', null, 'subtotal', 65);
+select tst.ok('promoção desativada não vale: Churrasco G = 70', $$[{"product_id":{p:Churrasco},"quantity":1,"size_id":{s:G},"flavor_ids":[{f:Churrasco}]}]$$, 'pickup', null, 'subtotal', 70);
+select tst.ok('promoção mais cara que o normal não aumenta: Calabresa P = 37', $$[{"product_id":{p:Calabresa},"quantity":1,"size_id":{s:P},"flavor_ids":[{f:Calabresa}]}]$$, 'pickup', null, 'subtotal', 37);
+select tst.ok('total com entrega: Portuguesa G 50', $$[{"product_id":{p:Portuguesa},"quantity":1,"size_id":{s:G},"flavor_ids":[{f:Portuguesa}]}]$$, 'delivery', 'Entrega (taxa a combinar)', 'total', 50);
+do $$ declare r jsonb; begin
+  r := tst.calc($j$[{"product_id":{p:Bauru},"quantity":1,"size_id":{s:G},"flavor_ids":[{f:Bauru}]},{"product_id":{p:Bauru},"quantity":1,"size_id":{s:M},"flavor_ids":[{f:Bauru}]}]$j$, 'pickup');
+  if (r->'items'->0->>'weekly_promo')::boolean is not true or (r->'items'->1->>'weekly_promo')::boolean is not false
+    then raise exception 'FALHOU: marcação weekly_promo errada %', r; end if;
+  raise notice 'OK linha marcada como promoção do dia só no tamanho da promoção';
+end $$;
+do $$ declare d jsonb; begin
+  d := public.menu_data();
+  if jsonb_array_length(d->'weekly_promotions') <> 7 then raise exception 'FALHOU: visitante deveria ver 7 promoções ativas, viu %', jsonb_array_length(d->'weekly_promotions'); end if;
+  if (d->>'today')::int <> tst.dow() then raise exception 'FALHOU: menu_data.today errado'; end if;
+  raise notice 'OK menu_data traz as promoções ativas e o dia de hoje';
+end $$;
+-- visitante não cria nem altera promoção
+do $$ begin
+  begin insert into public.weekly_promotions (weekday, flavor_id, size_id, price)
+    select 0, f.id, s.id, 1 from public.pizza_flavors f, public.pizza_sizes s limit 1;
+  exception when others then raise notice 'OK (recusado) visitante criar promoção: %', sqlerrm; return; end;
+  raise exception 'FALHOU: visitante criou promoção';
+end $$;
+do $$ begin
+  begin update public.weekly_promotions set price = 1;
+  exception when others then raise notice 'OK (recusado) visitante alterar promoção: %', sqlerrm; return; end;
+  if exists (select 1 from public.weekly_promotions where price = 1) then raise exception 'FALHOU: visitante alterou promoção'; end if;
+  raise notice 'OK (sem efeito) visitante alterar promoção';
+end $$;
+reset role;
