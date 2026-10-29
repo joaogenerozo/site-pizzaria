@@ -115,9 +115,31 @@ w(menu.adicionais.map((a, i) => `  (${q(a.nome)}, ${money(a.preco)}, ${i + 1})`)
 w('insert into public.product_extras (product_id, extra_id)');
 w("select p.id, e.id from public.products p cross join public.extras e where p.kind = 'pizza';");
 w();
+const promo = menu.promocoes_semanais;
+if (promo) {
+  const DIAS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+  if (!sizes.some((s) => s.sigla === promo.tamanho)) throw new Error(`Tamanho da promoção inexistente: ${promo.tamanho}`);
+  const rows = promo.dias.flatMap((d) => {
+    const weekday = DIAS.indexOf(d.dia);
+    if (weekday < 0) throw new Error(`Dia da promoção inválido: ${d.dia}`);
+    return d.sabores.map((nome, i) => {
+      if (!names.has(nome)) throw new Error(`Sabor da promoção não existe no cardápio: ${nome}`);
+      return `  (${weekday}, ${q(nome)}, ${money(promo.preco)}, ${i + 1})`;
+    });
+  });
+  w(`-- Promoções da semana: ${promo.tamanho} por R$ ${money(promo.preco).replace('.', ',')} (0 = domingo)`);
+  w('insert into public.weekly_promotions (weekday, flavor_id, size_id, price, sort_order)');
+  w('select v.weekday, f.id, s.id, v.price, v.ord from (values');
+  w(rows.join(',\n'));
+  w(') as v(weekday, flavor, price, ord)');
+  w('join public.pizza_flavors f on f.name = v.flavor');
+  w(`join public.pizza_sizes s on s.name = ${q(promo.tamanho)};`);
+  w();
+}
+
 w('commit;');
 w();
-w('-- Conferência rápida (deve mostrar 51 sabores e 4 com preço em confirmação):');
+w('-- Conferência rápida (deve mostrar 52 sabores e 4 com preço em confirmação):');
 w('-- select count(*), count(*) filter (where price_review) from public.pizza_flavors;');
 
 writeFileSync(new URL('supabase/seed_domingos.sql', root), out.join('\n') + '\n');

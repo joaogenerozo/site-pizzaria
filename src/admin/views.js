@@ -213,6 +213,35 @@ function priceMatrix({ title, intro, rows, sizes, existing, table, rowKey, withP
 }
 
 // ---------------------------------------------------------------- Adicionais
+// ---------------------------------------------------------------- Promoções da semana
+export async function weeklyPromosView() {
+  const flavors = await options('pizza_flavors');
+  const sizes = await options('pizza_sizes');
+  const flavorName = new Map(flavors.map((o) => [o.value, o.label]));
+  const sizeName = new Map(sizes.map((o) => [o.value, o.label]));
+  return crudView({
+    table: 'weekly_promotions', title: 'Promoções da semana', singular: 'promoção',
+    intro: 'Em cada dia da semana, o sabor escolhido sai pelo preço da promoção naquele tamanho. Vale só no dia (horário de Brasília) e o banco aplica o preço sozinho. Sabor com "preço em confirmação" pode ser pedido no dia e tamanho da promoção.',
+    order: [['weekday'], ['sort_order'], ['created_at']], activeKey: 'active',
+    describe: (r) => `${WEEKDAYS[r.weekday]}: ${flavorName.get(r.flavor_id) ?? 'sabor'} ${sizeName.get(r.size_id) ?? ''}`,
+    defaults: () => ({ weekday: 1, size_id: sizes[sizes.length - 1]?.value, price: '50.00', active: true, sort_order: 0 }),
+    columns: [
+      { label: 'Dia', render: (r) => WEEKDAYS[r.weekday] },
+      { label: 'Sabor', render: (r) => h('strong', {}, flavorName.get(r.flavor_id) ?? '—') },
+      { label: 'Tamanho', render: (r) => sizeName.get(r.size_id) ?? '—' },
+      { label: 'Preço', render: (r) => formatPrice(r.price) },
+    ],
+    fields: [
+      { key: 'weekday', label: 'Dia da semana', type: 'weekday', required: true },
+      { key: 'flavor_id', label: 'Sabor', type: 'select', required: true, options: flavors },
+      { key: 'size_id', label: 'Tamanho', type: 'select', required: true, options: sizes },
+      { key: 'price', label: 'Preço da promoção (R$)', type: 'money', required: true, help: 'Se for maior que o preço normal do sabor, vale o preço normal.' },
+      { key: 'active', label: 'Ativa', type: 'bool' },
+      { ...sortField, help: 'Ordem dentro do dia. Menor aparece primeiro.' },
+    ],
+  });
+}
+
 export function extrasView() {
   return crudView({
     table: 'extras', title: 'Adicionais', singular: 'adicional', orderKey: 'sort_order', activeKey: 'active',

@@ -49,12 +49,13 @@ o conteúdo de cada arquivo (copiar, colar, **Run**):
 2. `supabase/storage.sql`: bucket público `menu-images` (leitura pública,
    envio só por administradores).
 3. **Cardápio da Domingo's Pizzas:** `supabase/seed_domingos.sql` carrega os
-   51 sabores, tamanhos P/M/G, bordas, adicionais, horário e WhatsApp do
+   52 sabores, tamanhos P/M/G, bordas, adicionais, horário e WhatsApp do
    cardápio impresso (veja [docs/CARDAPIO-DOMINGOS.md](docs/CARDAPIO-DOMINGOS.md)).
    Ele **substitui** o cardápio que estiver no banco.
    Se você já tinha rodado uma versão antiga do `schema.sql`, rode antes
-   `supabase/migrations/001_preco_em_confirmacao.sql` e
-   `supabase/migrations/002_cardapio_numa_consulta.sql`.
+   `supabase/migrations/001_preco_em_confirmacao.sql`,
+   `supabase/migrations/002_cardapio_numa_consulta.sql` e
+   `supabase/migrations/003_promocoes_semanais.sql`.
 
    **Alternativa:** `supabase/seed_demo.sql` cria dados de demonstração
    (com aviso de "modo demonstração" no site). Se preferir começar vazio, não rode

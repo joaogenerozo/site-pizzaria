@@ -11,7 +11,7 @@ que passa a ser a fonte do cardápio.
 | Item | Quantidade |
 |---|---|
 | Categorias | 11 (frango, brócolis, calabresa, milho/bacon/palmito, presunto, queijo, lombo, atum, carne, peito de peru, doces) |
-| Sabores | 51, cada um com ingredientes e preço em P, M e G (153 preços) |
+| Sabores | 52, cada um com ingredientes e preço em P, M e G (156 preços). A Marguerita não está no impresso: foi criada para a promoção de sexta com os preços da Portuguesa |
 | Tamanhos | P = 4 pedaços, M = 6 pedaços, G = 8 pedaços |
 | Bordas | Requeijão R$ 15,00 · Cheddar R$ 18,00 · Mista R$ 20,00 |
 | Adicionais | Mussarela R$ 20,00 · Bacon R$ 10,00 · Milho R$ 5,00 · Palmito R$ 8,00 · Cebola R$ 5,00 · Tomate R$ 5,00 |
@@ -55,7 +55,6 @@ Nada disso foi inventado. Enquanto você não informar, o site funciona assim:
 |---|---|---|
 | Taxa de entrega | Região "Entrega (taxa a combinar)". O cliente digita o bairro e o total sai **sem a taxa**, e a mensagem diz "a combinar com a pizzaria" | Bairros e taxas (ou uma taxa fixa) |
 | Preço das bordas por tamanho | Mesmo valor em P, M e G | A borda custa igual nos três tamanhos? |
-| "Todos os dias duas pizzas na promoção" | Nenhuma promoção cadastrada | Quais pizzas e qual preço, se quiser no site |
 | Pedido mínimo e tempo de entrega | Sem mínimo; tempo não exibido | Valores, se houver |
 | Fotos e logo | Ilustração própria do site | Logo e fotos que vocês tenham direito de usar |
 
@@ -94,17 +93,45 @@ alterado pelo painel.
 ## Confirmado pela pizzaria (26/10/2026)
 
 - **Meio a meio:** card "Pizza 2 sabores (meio a meio)", primeiro do cardápio, com os
-  51 sabores. Até 2 sabores em P, M e G, cobrada pelo sabor mais caro.
+  52 sabores. Até 2 sabores em P, M e G, cobrada pelo sabor mais caro.
   Exemplo: G Calabresa (55,00) + Strogonoff de Boi (70,00) = R$ 70,00.
 - **Formas de pagamento:** Pix, Dinheiro (pergunta o troco), Cartão de crédito e
   Cartão de débito.
+
+## Promoções da semana (pedido de 28/10/2026)
+
+Três sabores por dia, **pizza G por R$ 50,00**. O tamanho G foi o escolhido
+porque em P e M vários desses sabores já custam R$ 50,00 ou menos.
+
+| Dia | Sabores |
+|---|---|
+| Segunda | Portuguesa, Bacon, 4 Queijos |
+| Terça | sem promoção (pizzaria fechada) |
+| Quarta | Mussarela, Bauru, Siciliana |
+| Quinta | Strogonoff de Boi (pedido como "strogonoff de carne"), Strogonoff de Frango, Frango com Catupiry |
+| Sexta | Marguerita, Brócolis 3 (cheddar e bacon), Calabresa da Casa |
+| Sábado | Portuguesa, Milho, Lombo Requeijão |
+| Domingo | Mussarela, Bacon e Palmito (pedido como "palmito com bacon"), Banana Nevada |
+
+- Vale só no dia, pelo horário de Brasília, e o **banco** aplica o preço
+  (`calculate_order`), então carrinho, revisão e WhatsApp mostram o mesmo valor.
+  A mensagem marca o item com "(promoção do dia)".
+- Borda e adicionais continuam cobrados à parte.
+- Meio a meio: com a regra do sabor mais caro, sai por R$ 50,00 quando os dois
+  sabores estão na promoção do dia.
+- **Mussarela** está com "preço em confirmação", mas na quarta e no domingo pode
+  ser pedida no G por R$ 50,00 (o preço da promoção é definido). P e M continuam bloqueados.
+- No site: faixa "Promoção de hoje" no topo do cardápio (com a lista dos outros
+  dias), selo "Promoção de hoje" no card e o preço antigo riscado.
+- Para mudar: painel `/admin/` → aba **Promoções da semana** (dia, sabor,
+  tamanho, preço, ativa). Vale na hora.
 
 ## Testes feitos (ambiente local que imita o Supabase)
 
 | # | Teste | Resultado |
 |---|---|---|
 | 1 | Todas as 12 categorias carregam (11 + meio a meio) | OK |
-| 2 | Os 51 sabores aparecem | OK |
+| 2 | Os 52 sabores aparecem | OK |
 | 3 | Ingredientes nos cards e na busca (ex.: "requeijao" sem acento, "goiaba") | OK |
 | 4-5 | Escolha de P, M, G e preço atualizado (Calabresa 37,00 / 45,00 / 55,00) | OK |
 | 6-7 | Adicionar, remover e alterar quantidade no carrinho | OK |

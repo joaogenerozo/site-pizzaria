@@ -5,7 +5,7 @@ import { pizzaArt } from '../lib/icons.js';
 import { supabase, configError } from '../lib/supabase.js';
 import { notify } from './ui.js';
 import { friendlyDbError } from './fields.js';
-import { productsView, categoriesView, pizzaView, extrasView, deliveryView, settingsView } from './views.js';
+import { productsView, categoriesView, pizzaView, weeklyPromosView, extrasView, deliveryView, settingsView } from './views.js';
 
 // IMPORTANTE: esconder telas aqui é só conveniência. Quem protege os dados é
 // o banco (RLS + tabela admins). Mesmo que alguém altere este código no
@@ -16,6 +16,7 @@ const TABS = [
   ['produtos', 'Produtos', productsView],
   ['categorias', 'Categorias', categoriesView],
   ['pizzas', 'Pizzas', pizzaView],
+  ['promocoes', 'Promoções da semana', weeklyPromosView],
   ['adicionais', 'Adicionais', extrasView],
   ['entrega', 'Entrega, pagamento e horários', deliveryView],
   ['loja', 'Dados da loja', settingsView],

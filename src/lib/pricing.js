@@ -52,7 +52,8 @@ export function priceItem(catalog, selection) {
         const allowed = product.flavors.some((f) => f.id === fid);
         const fp = allowed ? catalog.flavorPrice(fid, size.id) : null;
         if (!fp) errors.push('Sabor indisponível neste tamanho.');
-        else if (catalog.flavors.get(fid)?.price_review) errors.push(`O preço do sabor ${catalog.flavors.get(fid).name} ainda está em confirmação.`);
+        // Sabor em confirmação só pode ser pedido no dia e tamanho da promoção (preço definido)
+        else if (catalog.flavors.get(fid)?.price_review && !fp.weekly) errors.push(`O preço do sabor ${catalog.flavors.get(fid).name} ainda está em confirmação.`);
         else prices.push(fp.effectiveCents);
       }
       if (prices.length) {

@@ -237,6 +237,21 @@ create table public.product_extras (
   primary key (product_id, extra_id)
 );
 
+-- Promoção semanal: em um dia da semana, um sabor num tamanho sai por um preço
+-- fixo (ex.: segunda, Portuguesa G por R$ 50,00). O dia é o do fuso da loja.
+create table public.weekly_promotions (
+  id         uuid primary key default gen_random_uuid(),
+  weekday    smallint not null check (weekday between 0 and 6), -- 0 = domingo
+  flavor_id  uuid not null references public.pizza_flavors (id) on delete cascade,
+  size_id    uuid not null references public.pizza_sizes (id) on delete cascade,
+  price      numeric(10,2) not null check (price >= 0),
+  active     boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (weekday, flavor_id, size_id)
+);
+
 create index on public.products (category_id, sort_order);
 create index on public.flavor_prices (size_id);
 create index on public.crust_prices (size_id);
@@ -250,7 +265,7 @@ begin
   foreach t in array array[
     'store_settings','opening_hours','payment_methods','delivery_zones',
     'categories','products','pizza_sizes','pizza_flavors','flavor_prices',
-    'crusts','crust_prices','extras'
+    'crusts','crust_prices','extras','weekly_promotions'
   ] loop
     execute format(
       'create trigger %I before update on public.%I
@@ -269,7 +284,8 @@ grant select on
   public.delivery_zones, public.categories, public.products,
   public.pizza_sizes, public.pizza_flavors, public.flavor_prices,
   public.product_sizes, public.product_flavors, public.crusts,
-  public.crust_prices, public.extras, public.product_extras
+  public.crust_prices, public.extras, public.product_extras,
+  public.weekly_promotions
 to anon, authenticated;
 
 -- Escrita só para logados; o RLS abaixo restringe a administradores.
@@ -278,7 +294,8 @@ grant insert, update, delete on
   public.delivery_zones, public.categories, public.products,
   public.pizza_sizes, public.pizza_flavors, public.flavor_prices,
   public.product_sizes, public.product_flavors, public.crusts,
-  public.crust_prices, public.extras, public.product_extras
+  public.crust_prices, public.extras, public.product_extras,
+  public.weekly_promotions
 to authenticated;
 grant update on public.store_settings to authenticated; -- sem insert/delete: linha única
 
@@ -306,6 +323,7 @@ alter table public.crusts          enable row level security;
 alter table public.crust_prices    enable row level security;
 alter table public.extras          enable row level security;
 alter table public.product_extras  enable row level security;
+alter table public.weekly_promotions enable row level security;
 
 -- admins: cada usuário vê apenas se ele mesmo é admin. Nenhuma política de escrita.
 create policy admins_select_self on public.admins
@@ -330,6 +348,7 @@ create policy public_read on public.pizza_sizes     for select to anon, authenti
 create policy public_read on public.pizza_flavors   for select to anon, authenticated using (active or (select public.is_admin()));
 create policy public_read on public.crusts          for select to anon, authenticated using (active or (select public.is_admin()));
 create policy public_read on public.extras          for select to anon, authenticated using (active or (select public.is_admin()));
+create policy public_read on public.weekly_promotions for select to anon, authenticated using (active or (select public.is_admin()));
 
 -- Escrita: somente administradores
 create policy admin_update on public.store_settings for update to authenticated
@@ -341,7 +360,7 @@ begin
   foreach t in array array[
     'opening_hours','payment_methods','delivery_zones','categories','products',
     'pizza_sizes','pizza_flavors','flavor_prices','product_sizes','product_flavors',
-    'crusts','crust_prices','extras','product_extras'
+    'crusts','crust_prices','extras','product_extras','weekly_promotions'
   ] loop
     execute format('create policy admin_insert on public.%I for insert to authenticated with check ((select public.is_admin()))', t);
     execute format('create policy admin_update on public.%I for update to authenticated using ((select public.is_admin())) with check ((select public.is_admin()))', t);
@@ -393,9 +412,15 @@ declare
   fee        numeric(10,2) := 0;
   min_order  numeric(10,2);
   qp         record;
+  today      smallint;
+  n_review   integer;
+  n_weekly   integer;
+  is_weekly  boolean;
 begin
   select * into s from public.store_settings where id = 1;
   if not found then raise exception 'Loja não configurada'; end if;
+  -- dia da semana no fuso da loja (0 = domingo), para a promoção semanal
+  today := extract(dow from now() at time zone s.timezone);
   if not s.accepting_orders then raise exception 'A loja não está aceitando pedidos no momento'; end if;
 
   if p_items is null or jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) = 0 then
@@ -455,6 +480,7 @@ begin
     end if;
 
     crust_val := 0;
+    is_weekly := false;
 
     if p.kind = 'simple' then
       base := coalesce(p.promo_price, p.price);
@@ -481,24 +507,31 @@ begin
         select distinct (x)::uuid as fid
         from jsonb_array_elements_text(item->'flavor_ids') x
       ), priced as (
-        select coalesce(fp.promo_price, fp.price) as v
+        -- promoção semanal de hoje: vale o menor entre ela e o preço do sabor
+        select least(coalesce(fp.promo_price, fp.price), coalesce(wp.price, fp.price)) as v,
+               f.price_review,
+               wp.price is not null and wp.price < coalesce(fp.promo_price, fp.price) as weekly
         from chosen c
         join public.pizza_flavors f on f.id = c.fid and f.active
         join public.product_flavors pf on pf.flavor_id = f.id and pf.product_id = p.id
         join public.flavor_prices fp on fp.flavor_id = f.id and fp.size_id = sz.id
+        left join public.weekly_promotions wp
+          on wp.flavor_id = f.id and wp.size_id = sz.id and wp.weekday = today and wp.active
       )
       select case when s.multi_flavor_rule = 'media' then round(avg(v), 2) else max(v) end,
-             count(*)
-        into base, n_found
+             count(*),
+             -- sabor em confirmação só pode ser pedido no dia e tamanho da promoção (preço definido)
+             count(*) filter (where price_review and not weekly),
+             count(*) filter (where weekly)
+        into base, n_found, n_review, n_weekly
         from priced;
       if n_found <> n_flavors then
         raise exception 'Item %: sabor inválido, repetido ou sem preço no tamanho %', idx, sz.name;
       end if;
-      if exists (select 1 from public.pizza_flavors f
-                 where f.price_review
-                   and f.id in (select (x)::uuid from jsonb_array_elements_text(item->'flavor_ids') x)) then
+      if n_review > 0 then
         raise exception 'Item %: preço de sabor em confirmação', idx;
       end if;
+      is_weekly := n_weekly = n_found;
 
       if item ? 'crust_id' and jsonb_typeof(item->'crust_id') <> 'null' then
         select cp.price into crust_val
@@ -514,7 +547,7 @@ begin
 
     lines := lines || jsonb_build_object(
       'index', idx, 'product_id', p.id, 'quantity', qty,
-      'unit_price', unit, 'line_total', unit * qty);
+      'unit_price', unit, 'line_total', unit * qty, 'weekly_promo', is_weekly);
     subtotal := subtotal + unit * qty;
   end loop;
 
@@ -581,7 +614,10 @@ as $$
     'crusts',          (select coalesce(jsonb_agg(to_jsonb(t)), '[]') from public.crusts t),
     'crust_prices',    (select coalesce(jsonb_agg(to_jsonb(t)), '[]') from public.crust_prices t),
     'extras',          (select coalesce(jsonb_agg(to_jsonb(t)), '[]') from public.extras t),
-    'product_extras',  (select coalesce(jsonb_agg(to_jsonb(t)), '[]') from public.product_extras t)
+    'product_extras',  (select coalesce(jsonb_agg(to_jsonb(t)), '[]') from public.product_extras t),
+    'weekly_promotions', (select coalesce(jsonb_agg(to_jsonb(t)), '[]') from public.weekly_promotions t),
+    -- dia da semana no fuso da loja, pelo relógio do servidor (o do celular pode estar errado)
+    'today', (select extract(dow from now() at time zone t.timezone)::int from public.store_settings t where t.id = 1)
   );
 $$;
 
