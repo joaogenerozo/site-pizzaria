@@ -109,7 +109,7 @@ porque em P e M vários desses sabores já custam R$ 50,00 ou menos.
 | Terça | sem promoção (pizzaria fechada) |
 | Quarta | Mussarela, Bauru, Siciliana |
 | Quinta | Strogonoff de Boi (pedido como "strogonoff de carne"), Strogonoff de Frango, Frango com Catupiry |
-| Sexta | Brócolis Especial (pedido como "brócolis com bacon"), Calabresa da Casa · **Marguerita não existe no cardápio** |
+| Sexta | Brócolis 3 (cheddar e bacon), Calabresa da Casa · **Marguerita não existe no cardápio** |
 | Sábado | Portuguesa, Milho, Lombo Requeijão |
 | Domingo | Mussarela, Bacon e Palmito (pedido como "palmito com bacon"), Banana Nevada |
 

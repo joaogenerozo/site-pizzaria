@@ -374,7 +374,7 @@ select v.weekday, f.id, s.id, v.price, v.ord from (values
   (4, 'Strogonoff de Boi', 50.00, 1),
   (4, 'Strogonoff de Frango', 50.00, 2),
   (4, 'Frango com Catupiry', 50.00, 3),
-  (5, 'Brócolis Especial', 50.00, 1),
+  (5, 'Brócolis 3', 50.00, 1),
   (5, 'Calabresa da Casa', 50.00, 2),
   (6, 'Portuguesa', 50.00, 1),
   (6, 'Milho', 50.00, 2),
