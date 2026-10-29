@@ -139,7 +139,7 @@ if (promo) {
 
 w('commit;');
 w();
-w('-- Conferência rápida (deve mostrar 51 sabores e 4 com preço em confirmação):');
+w('-- Conferência rápida (deve mostrar 52 sabores e 4 com preço em confirmação):');
 w('-- select count(*), count(*) filter (where price_review) from public.pizza_flavors;');
 
 writeFileSync(new URL('supabase/seed_domingos.sql', root), out.join('\n') + '\n');

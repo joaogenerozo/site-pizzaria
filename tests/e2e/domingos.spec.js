@@ -21,11 +21,11 @@ test.afterEach(() => expect(consoleErrors, 'erros no console').toEqual([]));
 
 const card = (page, name) => page.locator('.card').filter({ has: page.locator('.card-name', { hasText: new RegExp(`^${name}$`) }) });
 
-test('cardápio real: 12 categorias, 51 sabores + meio a meio e preços por tamanho', async ({ page }) => {
+test('cardápio real: 12 categorias, 52 sabores + meio a meio e preços por tamanho', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.section-title')).toHaveCount(12);
   await expect(page.locator('.section-title').first()).toHaveText('Pizza meio a meio');
-  await expect(page.locator('.card')).toHaveCount(52);
+  await expect(page.locator('.card')).toHaveCount(53);
   await expect(card(page, 'Pizza 2 sabores \\(meio a meio\\)')).toContainText('até 2 sabores');
   await expect(card(page, 'Calabresa').locator('.card-open')).toHaveAttribute('aria-label', 'Calabresa, P R$ 37,00, M R$ 45,00, G R$ 55,00');
   await expect(card(page, 'Júlia').locator('.card-open')).toHaveAttribute('aria-label', /G R\$ 65,90/);

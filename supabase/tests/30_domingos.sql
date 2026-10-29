@@ -36,22 +36,24 @@ declare r jsonb; begin
 grant execute on all functions in schema tst to anon;
 
 do $$ begin
-  if (select count(*) from public.pizza_flavors) <> 51 then raise exception 'FALHOU: esperado 51 sabores'; end if;
-  if (select count(*) from public.flavor_prices) <> 153 then raise exception 'FALHOU: esperado 153 preços'; end if;
+  if (select count(*) from public.pizza_flavors) <> 52 then raise exception 'FALHOU: esperado 52 sabores'; end if;
+  if (select count(*) from public.flavor_prices) <> 156 then raise exception 'FALHOU: esperado 156 preços'; end if;
   if (select count(*) from public.categories) <> 12 then raise exception 'FALHOU: esperado 12 categorias'; end if;
   if (select string_agg(name, ',' order by sort_order) from public.payment_methods) <> 'Pix,Dinheiro,Cartão de crédito,Cartão de débito'
     then raise exception 'FALHOU: formas de pagamento erradas'; end if;
-  if (select count(*) from public.product_flavors pf join public.products p on p.id = pf.product_id where p.name = 'Pizza 2 sabores (meio a meio)') <> 51
-    then raise exception 'FALHOU: meio a meio deveria ter os 51 sabores'; end if;
+  if (select count(*) from public.product_flavors pf join public.products p on p.id = pf.product_id where p.name = 'Pizza 2 sabores (meio a meio)') <> 52
+    then raise exception 'FALHOU: meio a meio deveria ter os 52 sabores'; end if;
   if (select string_agg(name, ',' order by name) from public.pizza_flavors where price_review) <> 'Frango Barbecue,Lombo,Milho Especial,Mussarela'
     then raise exception 'FALHOU: sabores em confirmação errados'; end if;
-  raise notice 'OK carga: 51 sabores, 153 preços, 12 categorias, 4 em confirmação, 4 pagamentos, meio a meio com 51 sabores';
-  if (select count(*) from public.weekly_promotions w join public.pizza_sizes s on s.id = w.size_id where s.name = 'G' and w.price = 50) <> 17
-    then raise exception 'FALHOU: esperado 17 promoções da semana (G por 50,00)'; end if;
+  raise notice 'OK carga: 52 sabores, 156 preços, 12 categorias, 4 em confirmação, 4 pagamentos, meio a meio com 52 sabores';
+  if (select count(*) from public.weekly_promotions w join public.pizza_sizes s on s.id = w.size_id where s.name = 'G' and w.price = 50) <> 18
+    then raise exception 'FALHOU: esperado 18 promoções da semana (G por 50,00)'; end if;
+  if (select string_agg(f.name, ',' order by w.sort_order) from public.weekly_promotions w join public.pizza_flavors f on f.id = w.flavor_id where w.weekday = 5)
+     <> 'Marguerita,Brócolis 3,Calabresa da Casa' then raise exception 'FALHOU: promoções de sexta erradas'; end if;
   if exists (select 1 from public.weekly_promotions where weekday = 2) then raise exception 'FALHOU: terça não tem promoção'; end if;
   if (select string_agg(f.name, ',' order by w.sort_order) from public.weekly_promotions w join public.pizza_flavors f on f.id = w.flavor_id where w.weekday = 1)
      <> 'Portuguesa,Bacon,4 Queijos' then raise exception 'FALHOU: promoções de segunda erradas'; end if;
-  raise notice 'OK carga: 17 promoções da semana, G por R$ 50,00, nenhuma na terça';
+  raise notice 'OK carga: 18 promoções da semana, G por R$ 50,00, nenhuma na terça, sexta com Marguerita';
 end $$;
 -- Os testes de preço abaixo não podem depender do dia em que rodam: as
 -- promoções voltam no fim, criadas para "hoje" e "amanhã".
@@ -60,8 +62,8 @@ delete from public.weekly_promotions;
 
 set role anon;
 do $$ begin
-  if (select count(*) from public.products) <> 52 then raise exception 'FALHOU: visitante deveria ver 52 pizzas'; end if;
-  raise notice 'OK visitante vê as 52 pizzas (51 sabores + meio a meio)';
+  if (select count(*) from public.products) <> 53 then raise exception 'FALHOU: visitante deveria ver 53 pizzas'; end if;
+  raise notice 'OK visitante vê as 53 pizzas (52 sabores + meio a meio)';
 end $$;
 select tst.ok('Calabresa P = 37,00', $$[{"product_id":{p:Calabresa},"quantity":1,"size_id":{s:P},"flavor_ids":[{f:Calabresa}]}]$$, 'pickup', null, 'subtotal', 37);
 select tst.ok('Frango com Catupiry P = 50,90', $$[{"product_id":{p:Frango com Catupiry},"quantity":1,"size_id":{s:P},"flavor_ids":[{f:Frango com Catupiry}]}]$$, 'pickup', null, 'subtotal', 50.90);

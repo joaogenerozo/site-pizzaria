@@ -11,7 +11,7 @@ que passa a ser a fonte do cardápio.
 | Item | Quantidade |
 |---|---|
 | Categorias | 11 (frango, brócolis, calabresa, milho/bacon/palmito, presunto, queijo, lombo, atum, carne, peito de peru, doces) |
-| Sabores | 51, cada um com ingredientes e preço em P, M e G (153 preços) |
+| Sabores | 52, cada um com ingredientes e preço em P, M e G (156 preços). A Marguerita não está no impresso: foi criada para a promoção de sexta com os preços da Portuguesa |
 | Tamanhos | P = 4 pedaços, M = 6 pedaços, G = 8 pedaços |
 | Bordas | Requeijão R$ 15,00 · Cheddar R$ 18,00 · Mista R$ 20,00 |
 | Adicionais | Mussarela R$ 20,00 · Bacon R$ 10,00 · Milho R$ 5,00 · Palmito R$ 8,00 · Cebola R$ 5,00 · Tomate R$ 5,00 |
@@ -93,7 +93,7 @@ alterado pelo painel.
 ## Confirmado pela pizzaria (26/10/2026)
 
 - **Meio a meio:** card "Pizza 2 sabores (meio a meio)", primeiro do cardápio, com os
-  51 sabores. Até 2 sabores em P, M e G, cobrada pelo sabor mais caro.
+  52 sabores. Até 2 sabores em P, M e G, cobrada pelo sabor mais caro.
   Exemplo: G Calabresa (55,00) + Strogonoff de Boi (70,00) = R$ 70,00.
 - **Formas de pagamento:** Pix, Dinheiro (pergunta o troco), Cartão de crédito e
   Cartão de débito.
@@ -109,7 +109,7 @@ porque em P e M vários desses sabores já custam R$ 50,00 ou menos.
 | Terça | sem promoção (pizzaria fechada) |
 | Quarta | Mussarela, Bauru, Siciliana |
 | Quinta | Strogonoff de Boi (pedido como "strogonoff de carne"), Strogonoff de Frango, Frango com Catupiry |
-| Sexta | Brócolis 3 (cheddar e bacon), Calabresa da Casa · **Marguerita não existe no cardápio** |
+| Sexta | Marguerita, Brócolis 3 (cheddar e bacon), Calabresa da Casa |
 | Sábado | Portuguesa, Milho, Lombo Requeijão |
 | Domingo | Mussarela, Bacon e Palmito (pedido como "palmito com bacon"), Banana Nevada |
 
@@ -131,7 +131,7 @@ porque em P e M vários desses sabores já custam R$ 50,00 ou menos.
 | # | Teste | Resultado |
 |---|---|---|
 | 1 | Todas as 12 categorias carregam (11 + meio a meio) | OK |
-| 2 | Os 51 sabores aparecem | OK |
+| 2 | Os 52 sabores aparecem | OK |
 | 3 | Ingredientes nos cards e na busca (ex.: "requeijao" sem acento, "goiaba") | OK |
 | 4-5 | Escolha de P, M, G e preço atualizado (Calabresa 37,00 / 45,00 / 55,00) | OK |
 | 6-7 | Adicionar, remover e alterar quantidade no carrinho | OK |

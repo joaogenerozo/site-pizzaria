@@ -93,24 +93,25 @@ insert into public.pizza_flavors (name, description, price_review, sort_order) v
   ('5 Queijos', 'Mussarela, requeijão, parmesão, provolone e gorgonzola', false, 31),
   ('Catupiry', 'Mussarela e requeijão', false, 32),
   ('Catupiry com Bacon', 'Mussarela, requeijão e bacon', false, 33),
-  ('Lombo', 'Mussarela, lombo defumado e cebola', true, 34),
-  ('Lombo Especial', 'Lombo, mussarela, champignon e bacon', false, 35),
-  ('Lombo Cheddar', 'Mussarela, lombo defumado e cheddar', false, 36),
-  ('Lombo Requeijão', 'Lombo defumado, requeijão e mussarela', false, 37),
-  ('Polly', 'Lombo defumado, mussarela, cheddar e bacon', false, 38),
-  ('Atum', 'Mussarela, atum e cebola', false, 39),
-  ('Atum Especial', 'Mussarela, atum, cebola e tomate', false, 40),
-  ('Strogonoff de Boi', 'Mussarela, strogonoff de boi com champignon e batata palha', false, 41),
-  ('Churrasco', 'Mussarela com fraldinha flambada no alho e azeite e cebolas', false, 42),
-  ('Peru', 'Mussarela, peito de peru e requeijão', false, 43),
-  ('Califa', 'Mussarela, peito de peru, cheddar, abacaxi e bacon', false, 44),
-  ('Peru Especial', 'Mussarela, peito de peru, requeijão e geléia de pimenta', false, 45),
-  ('Uva Branca', 'Chocolate branco, uvas verdes, brownie, cacau em pó e amendoim', false, 46),
-  ('Doce Delírio', 'Chocolate branco, chocolate preto, uvas verdes, morango e sonho de valsa branco', false, 47),
-  ('Moça', 'Creme de leite moça com leite em pó, morangos e raspas de lima', false, 48),
-  ('Banana Nevada', 'Bananas fatiadas com chocolate branco', false, 49),
-  ('Banana Tradicional', 'Bananas fatiadas com mussarela, canela e açúcar', false, 50),
-  ('Romeu e Julieta', 'Mussarela com goiaba', false, 51);
+  ('Marguerita', 'Mussarela, tomate e manjericão', false, 34),
+  ('Lombo', 'Mussarela, lombo defumado e cebola', true, 35),
+  ('Lombo Especial', 'Lombo, mussarela, champignon e bacon', false, 36),
+  ('Lombo Cheddar', 'Mussarela, lombo defumado e cheddar', false, 37),
+  ('Lombo Requeijão', 'Lombo defumado, requeijão e mussarela', false, 38),
+  ('Polly', 'Lombo defumado, mussarela, cheddar e bacon', false, 39),
+  ('Atum', 'Mussarela, atum e cebola', false, 40),
+  ('Atum Especial', 'Mussarela, atum, cebola e tomate', false, 41),
+  ('Strogonoff de Boi', 'Mussarela, strogonoff de boi com champignon e batata palha', false, 42),
+  ('Churrasco', 'Mussarela com fraldinha flambada no alho e azeite e cebolas', false, 43),
+  ('Peru', 'Mussarela, peito de peru e requeijão', false, 44),
+  ('Califa', 'Mussarela, peito de peru, cheddar, abacaxi e bacon', false, 45),
+  ('Peru Especial', 'Mussarela, peito de peru, requeijão e geléia de pimenta', false, 46),
+  ('Uva Branca', 'Chocolate branco, uvas verdes, brownie, cacau em pó e amendoim', false, 47),
+  ('Doce Delírio', 'Chocolate branco, chocolate preto, uvas verdes, morango e sonho de valsa branco', false, 48),
+  ('Moça', 'Creme de leite moça com leite em pó, morangos e raspas de lima', false, 49),
+  ('Banana Nevada', 'Bananas fatiadas com chocolate branco', false, 50),
+  ('Banana Tradicional', 'Bananas fatiadas com mussarela, canela e açúcar', false, 51),
+  ('Romeu e Julieta', 'Mussarela com goiaba', false, 52);
 
 insert into public.flavor_prices (flavor_id, size_id, price)
 select f.id, s.id, v.price from (values
@@ -213,6 +214,9 @@ select f.id, s.id, v.price from (values
   ('Catupiry com Bacon', 'P', 45.00),
   ('Catupiry com Bacon', 'M', 55.00),
   ('Catupiry com Bacon', 'G', 59.90),
+  ('Marguerita', 'P', 40.00),
+  ('Marguerita', 'M', 45.00),
+  ('Marguerita', 'G', 55.90),
   ('Lombo', 'P', 50.00),
   ('Lombo', 'M', 45.00),
   ('Lombo', 'G', 55.90),
@@ -307,6 +311,7 @@ select c.id, 'pizza', v.name, v.description, v.ord from (values
   ('Pizzas de queijo', '5 Queijos', 'Mussarela, requeijão, parmesão, provolone e gorgonzola', 4),
   ('Pizzas de queijo', 'Catupiry', 'Mussarela e requeijão', 5),
   ('Pizzas de queijo', 'Catupiry com Bacon', 'Mussarela, requeijão e bacon', 6),
+  ('Pizzas de queijo', 'Marguerita', 'Mussarela, tomate e manjericão', 7),
   ('Pizzas de lombo', 'Lombo', 'Mussarela, lombo defumado e cebola', 1),
   ('Pizzas de lombo', 'Lombo Especial', 'Lombo, mussarela, champignon e bacon', 2),
   ('Pizzas de lombo', 'Lombo Cheddar', 'Mussarela, lombo defumado e cheddar', 3),
@@ -374,8 +379,9 @@ select v.weekday, f.id, s.id, v.price, v.ord from (values
   (4, 'Strogonoff de Boi', 50.00, 1),
   (4, 'Strogonoff de Frango', 50.00, 2),
   (4, 'Frango com Catupiry', 50.00, 3),
-  (5, 'Brócolis 3', 50.00, 1),
-  (5, 'Calabresa da Casa', 50.00, 2),
+  (5, 'Marguerita', 50.00, 1),
+  (5, 'Brócolis 3', 50.00, 2),
+  (5, 'Calabresa da Casa', 50.00, 3),
   (6, 'Portuguesa', 50.00, 1),
   (6, 'Milho', 50.00, 2),
   (6, 'Lombo Requeijão', 50.00, 3),
@@ -388,5 +394,5 @@ join public.pizza_sizes s on s.name = 'G';
 
 commit;
 
--- Conferência rápida (deve mostrar 51 sabores e 4 com preço em confirmação):
+-- Conferência rápida (deve mostrar 52 sabores e 4 com preço em confirmação):
 -- select count(*), count(*) filter (where price_review) from public.pizza_flavors;
