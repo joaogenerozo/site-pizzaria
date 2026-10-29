@@ -301,8 +301,32 @@ function renderWeeklyPromos() {
         }),
       }, label);
     })),
+    halfHalfPromo(todays, sameOffer(todays)),
     h('p', { class: 'promo-note' }, 'Vale só hoje, no tamanho indicado. Na meio a meio, vale quando os dois sabores estão na promoção.'),
     week);
+}
+
+// Meio a meio da promoção: abre a pizza de 2 sabores só com o tamanho e os sabores de hoje
+function halfHalfPromo(todays, sameOffer) {
+  if (todays.length < 2 || !sameOffer) return null;
+  const { size, priceCents } = todays[0];
+  const ids = todays.map((w) => w.flavor.id);
+  const product = [...catalog.products.values()].find((p) => p.kind === 'pizza'
+    && p.sizes.some((s) => s.id === size.id && s.max_flavors >= 2)
+    && ids.filter((id) => p.flavors.some((f) => f.id === id)).length >= 2);
+  if (!product) return null;
+  const flavorIds = ids.filter((id) => product.flavors.some((f) => f.id === id));
+  const text = `Adicione dois sabores da promoção por apenas ${formatCents(priceCents)}`;
+  const category = catalog.categories.find((c) => c.id === product.category_id);
+  return h('button', {
+    type: 'button', class: 'promo-half',
+    'aria-label': `Meio a meio: ${text.toLowerCase()} (pizza ${size.name})`,
+    onclick: () => openProductModal({
+      catalog, productId: product.id, categoryName: category?.name ?? '', initial: { sizeId: size.id },
+      promo: { sizeId: size.id, flavorIds, text: `Promoção de hoje: escolha dois sabores da promoção, pizza ${size.name} por ${formatCents(priceCents)}.` },
+      onConfirm: (sel) => { cart.add(sel); toast(`${product.name} adicionado ao carrinho`); },
+    }),
+  }, h('span', { class: 'promo-flavor' }, h('span', { class: 'promo-half-tag' }, 'Meio a meio'), ` ${text}`));
 }
 
 const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);

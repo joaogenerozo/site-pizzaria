@@ -182,3 +182,50 @@ test('promoção de hoje: faixa no topo, G por R$ 50 até o WhatsApp e sabor em 
     sql('delete from public.weekly_promotions');
   }
 });
+
+test('promoção de hoje: meio a meio com dois sabores da promoção por R$ 50', async ({ page }) => {
+  const today = "extract(dow from now() at time zone 'America/Sao_Paulo')";
+  sql(`insert into public.weekly_promotions (weekday, flavor_id, size_id, price, sort_order)
+    select ${today}, f.id, s.id, 50, f.sort_order from public.pizza_flavors f, public.pizza_sizes s
+    where s.name = 'G' and f.name in ('Portuguesa', 'Bacon', '4 Queijos')`);
+  try {
+    await page.goto('/');
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await expect(page.locator('.promo-half')).toContainText('Adicione dois sabores da promoção por apenas R$ 50,00');
+    await page.locator('.promo-half').click();
+    // só o tamanho G e os sabores de hoje
+    const group = (i) => page.locator('dialog .opt-group').nth(i);
+    await expect(group(0).locator('.opt-name')).toHaveText(['G']);
+    await expect(group(1).locator('.opt-name')).toHaveText([/^Bacon/, /^Portuguesa/, /^4 Queijos/]);
+    await group(1).locator('label.opt', { hasText: 'Bacon' }).click();
+    await group(1).locator('label.opt', { hasText: '4 Queijos' }).click();
+    await expect(page.locator('.sheet-foot .btn')).toContainText('R$ 50,00');
+    await page.locator('.sheet-foot .btn').click();
+    await expect(page.locator('#open-cart')).toContainText('R$ 50,00');
+
+    await page.locator('#open-cart').click();
+    await page.locator('#go-details').click();
+    await page.locator('.segmented label', { hasText: 'Retirada' }).click();
+    await page.locator('#f-name').fill('Maria');
+    await page.locator('#f-phone').fill('(35) 99876-5432');
+    await page.locator('label.opt', { hasText: 'Pix' }).click();
+    await page.locator('#go-review').click();
+    await expect(page.locator('.total-row.grand')).toContainText('R$ 50,00');
+  } finally {
+    sql('delete from public.weekly_promotions');
+  }
+});
+
+test('promoção de hoje com um sabor só não oferece o meio a meio', async ({ page }) => {
+  const today = "extract(dow from now() at time zone 'America/Sao_Paulo')";
+  sql(`insert into public.weekly_promotions (weekday, flavor_id, size_id, price)
+    select ${today}, f.id, s.id, 50 from public.pizza_flavors f, public.pizza_sizes s where s.name = 'G' and f.name = 'Bacon'`);
+  try {
+    await page.goto('/');
+    await expect(page.locator('.promo-item')).toHaveCount(1);
+    await expect(page.locator('.promo-half')).toHaveCount(0);
+  } finally {
+    sql('delete from public.weekly_promotions');
+  }
+});
