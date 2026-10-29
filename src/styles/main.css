@@ -558,14 +558,14 @@ dialog.sheet .btn-ghost:hover { background: var(--blue-soft); }
 .promo-today.is-empty .promo-sub { margin: 0; color: var(--ink-2); }
 .promo-list { display: grid; gap: 8px; }
 @media (min-width: 700px) { .promo-list { grid-template-columns: repeat(3, 1fr); } }
-.promo-item {
+.promo-item, .promo-half {
   display: flex; justify-content: space-between; align-items: center; gap: 10px;
   width: 100%; text-align: left;
   background: #fff; color: #0f1b33;
   border: 0; border-radius: 12px; padding: 10px 12px;
   font-weight: 600;
 }
-button.promo-item:hover { box-shadow: 0 0 0 3px rgba(255, 255, 255, .45); }
+button.promo-item:hover, .promo-half:hover { box-shadow: 0 0 0 3px rgba(255, 255, 255, .45); }
 .promo-flavor { font-weight: 700; }
 .promo-price { white-space: nowrap; font-weight: 800; color: var(--brand); }
 .promo-price .price-old { color: #5d6a86; font-weight: 500; margin-right: 2px; }
@@ -580,3 +580,6 @@ button.promo-item:hover { box-shadow: 0 0 0 3px rgba(255, 255, 255, .45); }
 .size-price.promo .price-old { font-size: 12px; margin: 0 2px; }
 .promo-week .hours-table td, .promo-week .hours-table td:last-child { text-align: left; color: inherit; border-bottom-color: rgba(255, 255, 255, .3); }
 .promo-today.is-empty .promo-week .hours-table td { border-bottom-color: var(--line); }
+.promo-half { margin-top: 8px; border: 2px dashed var(--brand); }
+.promo-half-tag { display: inline-block; background: var(--brand); color: #fff; border-radius: 6px; padding: 1px 7px; margin-right: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .02em; }
+.notice.promo { background: var(--brand); color: #fff; font-weight: 600; margin-top: 0; }
