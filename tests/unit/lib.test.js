@@ -5,7 +5,7 @@ import { createCart, sanitizeItem } from '../../src/lib/cart.js';
 import { buildOrderMessage, whatsappLink, normalizeBrPhone, cleanText } from '../../src/lib/whatsapp.js';
 import { buildCatalog } from '../../src/lib/catalog.js';
 import { priceItem } from '../../src/lib/pricing.js';
-import { productImageAlt } from '../../src/lib/text.js';
+import { productImageAlt, slugify, matchFilesToItems } from '../../src/lib/text.js';
 
 const id = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
@@ -225,5 +225,32 @@ describe('texto alternativo das fotos', () => {
     expect(productImageAlt('Pizza doce', 'Pizza')).toBe('Pizza doce');
     expect(productImageAlt('Pizza meio a meio', 'Pizza meio a meio')).toBe('Pizza meio a meio');
     expect(productImageAlt('Batata frita', undefined)).toBe('Batata frita');
+  });
+});
+
+describe('várias fotos de uma vez: arquivo -> produto pelo nome', () => {
+  const items = ['Bacon', 'Milho Bacon', 'Catupiry com Bacon', 'Frango com Catupiry', 'Brócolis 1', 'Brócolis', 'Pizza 2 sabores (meio a meio)', 'Júlia'].map((name) => ({ name }));
+  const run = (...names) => matchFilesToItems(names.map((name) => ({ name })), items);
+  const pairs = (r) => r.matches.map((m) => [m.file.name, m.item.name]);
+
+  it('slug sem acentos nem símbolos', () => {
+    expect(slugify('Brócolis 1')).toBe('brocolis-1');
+    expect(slugify('Pizza 2 sabores (meio a meio)')).toBe('pizza-2-sabores-meio-a-meio');
+  });
+  it('aceita nome com espaços e acentos ou com hífens, em qualquer extensão', () => {
+    expect(pairs(run('Frango com Catupiry.JPG', 'brocolis-1.webp', 'julia.png'))).toEqual([
+      ['Frango com Catupiry.JPG', 'Frango com Catupiry'], ['brocolis-1.webp', 'Brócolis 1'], ['julia.png', 'Júlia']]);
+  });
+  it('nome exato vence o parcial (bacon não vira Milho Bacon)', () => {
+    expect(pairs(run('bacon.webp', 'brocolis.webp'))).toEqual([['bacon.webp', 'Bacon'], ['brocolis.webp', 'Brócolis']]);
+  });
+  it('parcial só quando há um único produto possível', () => {
+    expect(pairs(run('meio-a-meio.webp'))).toEqual([['meio-a-meio.webp', 'Pizza 2 sabores (meio a meio)']]);
+    expect(run('catupiry.webp').unmatched.map((f) => f.name)).toEqual(['catupiry.webp']); // 2 produtos possíveis
+  });
+  it('sem produto ou repetido fica de fora', () => {
+    const r = run('calabresa.jpg', 'Bacon.jpg', 'bacon.webp', 'foto.jpg');
+    expect(pairs(r)).toEqual([['Bacon.jpg', 'Bacon']]);
+    expect(r.unmatched.map((f) => f.name)).toEqual(['calabresa.jpg', 'bacon.webp', 'foto.jpg']);
   });
 });

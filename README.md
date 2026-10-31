@@ -100,6 +100,9 @@ acesso ao painel do Supabase consegue.
    bordas, adicionais, bairros/taxas, formas de pagamento e horários.
    Fotos enviadas pelo painel são reduzidas automaticamente (até 1600 px) antes
    do envio, e a foto antiga é apagada do Storage quando você troca ou exclui.
+   A aba **Fotos** mostra todos os produtos em grade: "Enviar foto" grava na
+   hora, e "Enviar várias fotos" liga cada arquivo ao produto de mesmo nome
+   (ex.: `frango-com-catupiry.webp`), mostrando a lista para conferir antes.
    Para trocar a demonstração pelos dados reais, rode o bloco
    "LIMPAR DEMONSTRAÇÃO" no fim de `supabase/seed_demo.sql`.
 
@@ -120,7 +123,7 @@ Também há um ambiente 100% local que imita o Supabase (PostgreSQL + PostgREST
 ```bash
 bash supabase/tests/run.sh                       # 85 testes de RLS e preço no banco
 LOCAL_ANON_KEY=$(node dev/make-jwt.mjs anon) \
-  npx playwright test                            # 68 testes no navegador (celular e desktop)
+  npx playwright test                            # 70 testes no navegador (celular e desktop)
 SEED=domingos bash dev/reset-db.sh               # abre o site local com o cardápio real
 ```
 
