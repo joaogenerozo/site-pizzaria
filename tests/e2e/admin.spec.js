@@ -219,3 +219,26 @@ test('admin cadastra horário, bairro e forma de pagamento', async ({ page }) =>
   await page.click('#adm-save');
   await expect(hours.locator('tr', { hasText: 'Segunda' })).toContainText('01:00');
 });
+
+test('aba Fotos lista os produtos e confere as fotos enviadas em lote pelo nome do arquivo', async ({ page }) => {
+  await login(page, ADMIN);
+  await page.click('a[href="#fotos"]');
+  // outros testes do painel criam produtos: a contagem exata depende da ordem
+  await expect(page.locator('#photo-summary')).toHaveText(/^0 de \d+ produtos com foto\.$/);
+  const total = await page.locator('.adm-photo').count();
+  expect(total).toBeGreaterThanOrEqual(10);
+  await page.fill('#photo-search', 'esfiha');
+  await expect(page.locator('.adm-photo-name')).toHaveText(['Esfiha de carne', 'Esfiha de queijo']);
+  await expect(page.locator('.adm-photo[data-name="Esfiha de carne"] label.btn')).toHaveText('Enviar foto');
+  await page.fill('#photo-search', '');
+  // Só confere a ligação arquivo -> produto; nada é enviado sem confirmar
+  const img = { mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64') };
+  await page.setInputFiles('#photo-bulk', [
+    { name: 'Batata frita.jpg', ...img }, { name: 'esfiha-de-queijo.png', ...img }, { name: 'sem-nome.png', ...img }]);
+  await expect(page.locator('#bulk-matches li')).toHaveText(['Batata frita ← Batata frita.jpg', 'Esfiha de queijo ← esfiha-de-queijo.png']);
+  await expect(page.locator('#bulk-unmatched li')).toHaveText(['sem-nome.png']);
+  await expect(page.locator('#bulk-ok')).toHaveText('Enviar 2 fotos');
+  await page.click('#bulk-cancel');
+  await expect(page.locator('#bulk-t')).toHaveCount(0);
+  await expect(page.locator('#photo-summary')).toHaveText(`0 de ${total} produtos com foto.`);
+});
