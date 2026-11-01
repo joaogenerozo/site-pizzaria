@@ -16,6 +16,9 @@ export const cart = createCart();
 let catalog = null;
 let query = '';
 let slugs = new Map(); // id da categoria -> âncora legível (#pizzas-de-calabresa)
+// Cartões já montados: a busca reaproveita os mesmos elementos em vez de recriar
+// tudo a cada letra (resposta mais rápida no celular e as fotos não recarregam)
+let cardCache = new Map();
 
 // O index.html já traz o topo com a marca e o esqueleto do cardápio: a página
 // pinta antes do JavaScript e dos dados chegarem (melhora FCP/LCP). A faixa da
@@ -84,6 +87,7 @@ function render() {
   const s = catalog.settings;
   document.title = `${s.name} | Cardápio e pedidos pelo WhatsApp`;
   slugs = categorySlugs(catalog.categories);
+  cardCache = new Map();
   add(clear(app),
     s.is_demo ? h('div', { class: 'demo-banner', role: 'note' },
       h('strong', {}, 'Modo demonstração: '), 'nome, produtos, preços e taxas são fictícios.') : null,
@@ -247,7 +251,7 @@ function renderMenu() {
     main.append(h('section', { class: 'section', id: slugs.get(c.id), dataset: { cat: c.id }, 'aria-labelledby': `t-${c.id}` },
       h('h2', { class: 'section-title', id: `t-${c.id}` }, c.name),
       c.description ? h('p', { class: 'card-desc', style: 'margin:-6px 0 12px' }, c.description) : null,
-      h('div', { class: 'grid' }, items.map((p) => productCard(p, c)))));
+      h('div', { class: 'grid' }, items.map((p) => cachedCard(p, c)))));
   }
   if (!shown) {
     main.append(h('div', { class: 'state' }, icon('search'), h('h2', {}, 'Nada encontrado'),
@@ -330,6 +334,12 @@ function halfHalfPromo(todays, sameOffer) {
 }
 
 const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+function cachedCard(p, category) {
+  let card = cardCache.get(p.id);
+  if (!card) cardCache.set(p.id, (card = productCard(p, category)));
+  return card;
+}
 
 function productCard(p, category) {
   const hasPromo = p.kind === 'simple' && !p.price_review && p.promoCents !== null;
