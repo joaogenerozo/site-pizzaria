@@ -224,10 +224,11 @@ test('SEO: um h1 só, títulos em ordem, título da aba e nenhum JSON-LD com dad
 
 test('SEO: todas as imagens têm texto alternativo, inclusive fotos de produto', async ({ page }) => {
   const photo = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-  await page.route('**/rest/v1/products?*', async (route) => {
-    const rows = await (await route.fetch()).json();
-    for (const p of rows) if (p.name === 'Batata frita') p.image_url = photo;
-    await route.fulfill({ json: rows });
+  // O cardápio vem numa consulta só (rpc/menu_data) ou, sem ela, tabela por tabela
+  await page.route(/\/rest\/v1\/(products\?|rpc\/menu_data)/, async (route) => {
+    const body = await (await route.fetch()).json();
+    for (const p of Array.isArray(body) ? body : body.products) if (p.name === 'Batata frita') p.image_url = photo;
+    await route.fulfill({ json: body });
   });
   await page.reload();
   await expect(page.locator('.card', { hasText: 'Batata frita' }).locator('img.thumb')).toHaveAttribute('alt', 'Batata frita - Porções');

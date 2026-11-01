@@ -6,6 +6,7 @@ import { supabase, configError } from '../lib/supabase.js';
 import { notify } from './ui.js';
 import { friendlyDbError } from './fields.js';
 import { productsView, categoriesView, pizzaView, weeklyPromosView, extrasView, deliveryView, settingsView } from './views.js';
+import { photosView } from './photos.js';
 
 // IMPORTANTE: esconder telas aqui é só conveniência. Quem protege os dados é
 // o banco (RLS + tabela admins). Mesmo que alguém altere este código no
@@ -14,6 +15,7 @@ import { productsView, categoriesView, pizzaView, weeklyPromosView, extrasView, 
 const root = document.getElementById('admin');
 const TABS = [
   ['produtos', 'Produtos', productsView],
+  ['fotos', 'Fotos', photosView],
   ['categorias', 'Categorias', categoriesView],
   ['pizzas', 'Pizzas', pizzaView],
   ['promocoes', 'Promoções da semana', weeklyPromosView],
