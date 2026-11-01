@@ -194,7 +194,7 @@ a { color: var(--blue); }
 
 /* ---------- seções e cards ---------- */
 main { padding-bottom: 120px; }
-.section { padding-top: 26px; scroll-margin-top: var(--toolbar-h); }
+.section, .featured { padding-top: 26px; scroll-margin-top: var(--toolbar-h); }
 .section-title {
   margin: 0 0 12px;
   font: 800 24px/1.2 var(--font-display);
@@ -237,6 +237,15 @@ main { padding-bottom: 120px; }
   background: var(--blue-soft);
 }
 .thumb.placeholder { display: grid; place-items: center; }
+.card-media { flex: none; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.card-add {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  width: 96px; min-height: 32px; border-radius: 999px;
+  background: var(--brand); color: #fff;
+  font-size: 13px; font-weight: 700;
+}
+.card-add svg { width: 15px; height: 15px; }
+.card:hover .card-add { filter: brightness(1.08); }
 .thumb.placeholder svg { width: 58%; height: 58%; }
 .price { font-weight: 700; color: var(--ink); }
 .price-from { font-size: 12px; color: var(--ink-3); font-weight: 500; margin-right: 2px; }

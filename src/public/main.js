@@ -19,6 +19,7 @@ let slugs = new Map(); // id da categoria -> âncora legível (#pizzas-de-calabr
 // Cartões já montados: a busca reaproveita os mesmos elementos em vez de recriar
 // tudo a cada letra (resposta mais rápida no celular e as fotos não recarregam)
 let cardCache = new Map();
+let featuredCache = new Map();
 
 // O index.html já traz o topo com a marca e o esqueleto do cardápio: a página
 // pinta antes do JavaScript e dos dados chegarem (melhora FCP/LCP). A faixa da
@@ -88,6 +89,7 @@ function render() {
   document.title = `${s.name} | Cardápio e pedidos pelo WhatsApp`;
   slugs = categorySlugs(catalog.categories);
   cardCache = new Map();
+  featuredCache = new Map();
   add(clear(app),
     s.is_demo ? h('div', { class: 'demo-banner', role: 'note' },
       h('strong', {}, 'Modo demonstração: '), 'nome, produtos, preços e taxas são fictícios.') : null,
@@ -181,7 +183,7 @@ function renderToolbar() {
 // ---------------------------------------------------------------- links internos
 // Cada categoria tem uma âncora legível e estável, derivada do nome
 // (#pizzas-de-calabresa), em vez do código interno do banco.
-const RESERVED_IDS = new Set(['app', 'menu', 'search', 'cat-nav', 'cart-bar', 'open-cart', 'contact-whatsapp', 'info-title', 'pm-title', 'cart-title']);
+const RESERVED_IDS = new Set(['app', 'menu', 'search', 'cat-nav', 'cart-bar', 'open-cart', 'contact-whatsapp', 'info-title', 'pm-title', 'cart-title', 'mais-pedidos', 't-mais-pedidos', 'promocao-de-hoje', 'promo-title']);
 function categorySlugs(categories) {
   const map = new Map();
   const used = new Set(RESERVED_IDS);
@@ -240,7 +242,7 @@ function renderMenu() {
       h('p', {}, 'Ainda não há produtos disponíveis. Volte em breve!')));
     return;
   }
-  if (!query.trim()) main.append(...[renderWeeklyPromos()].filter(Boolean));
+  if (!query.trim()) main.append(...[renderWeeklyPromos(), renderFeatured()].filter(Boolean));
   let shown = 0;
   for (const c of catalog.categories) {
     const items = c.products.filter((p) => matchesSearch(query, p.name, p.description, c.name,
@@ -257,6 +259,18 @@ function renderMenu() {
     main.append(h('div', { class: 'state' }, icon('search'), h('h2', {}, 'Nada encontrado'),
       h('p', {}, `Nenhum produto corresponde a “${query.trim()}”.`)));
   }
+}
+
+// "Mais pedidos": só aparece quando a pizzaria marca o selo "Mais pedido" (ou "Mais vendido")
+// num produto pelo painel. Nada é escolhido automaticamente.
+const FEATURED_BADGE = /\bmais\s+(pedid|vendid)/i;
+function renderFeatured() {
+  const items = catalog.categories.flatMap((c) => c.products
+    .filter((p) => p.badge && FEATURED_BADGE.test(p.badge)).map((p) => [p, c]));
+  if (!items.length) return null;
+  return h('section', { class: 'featured', id: 'mais-pedidos', 'aria-labelledby': 't-mais-pedidos' },
+    h('h2', { class: 'section-title', id: 't-mais-pedidos' }, 'Mais pedidos'),
+    h('div', { class: 'grid' }, items.slice(0, 6).map(([p, c]) => cachedCard(p, c, featuredCache))));
 }
 
 // ---------------------------------------------------------------- promoções da semana
@@ -335,9 +349,9 @@ function halfHalfPromo(todays, sameOffer) {
 
 const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
-function cachedCard(p, category) {
-  let card = cardCache.get(p.id);
-  if (!card) cardCache.set(p.id, (card = productCard(p, category)));
+function cachedCard(p, category, cache = cardCache) {
+  let card = cache.get(p.id);
+  if (!card) cache.set(p.id, (card = productCard(p, category)));
   return card;
 }
 
@@ -364,6 +378,8 @@ function productCard(p, category) {
       pizzaHint = `${p.sizes.map((s) => s.name).join(', ')} · até ${maxF} sabor${maxF > 1 ? 'es' : ''}`;
     }
   }
+  // Item com preço em confirmação abre o detalhe, mas não dá para pedir
+  const orderable = p.fromCents !== null && !(sizePrices && !sizePrices.length);
   const qtyHint = p.qtyPromoMin ? `A partir de ${p.qtyPromoMin} un.: ${formatCents(p.qtyPromoCents)} cada` : null;
 
   // Card = artigo com título; o botão fica no título e cobre o card inteiro (ver .card-open no CSS)
@@ -392,10 +408,13 @@ function productCard(p, category) {
         p.kind === 'pizza' ? h('span', { class: 'price-from' }, 'a partir de') : null,
         hasPromo ? h('span', { class: 'price-old' }, formatCents(p.priceCents)) : null,
         h('span', { class: `price${hasPromo ? ' price-promo' : ''}` }, formatCents(p.fromCents)))),
-  p.image_url
-    // miniatura (400 px) no cartão; a foto grande só abre no detalhe do produto
-    ? h('img', { class: 'thumb', src: p.image_thumb_url || p.image_url, alt: p.image_alt || productImageAlt(p.name, category.name), loading: 'lazy', decoding: 'async', width: 96, height: 96 })
-    : h('div', { class: 'thumb placeholder', 'aria-hidden': 'true' }, illustration(p, category.name)));
+  h('div', { class: 'card-media' },
+    p.image_url
+      // miniatura (400 px) no cartão; a foto grande só abre no detalhe do produto
+      ? h('img', { class: 'thumb', src: p.image_thumb_url || p.image_url, alt: p.image_alt || productImageAlt(p.name, category.name), loading: 'lazy', decoding: 'async', width: 96, height: 96 })
+      : h('div', { class: 'thumb placeholder', 'aria-hidden': 'true' }, illustration(p, category.name)),
+    // Sinal visual de "pedir": o card inteiro já é o botão (card-open), então isto é só decorativo
+    orderable ? h('span', { class: 'card-add', 'aria-hidden': 'true' }, icon('plus'), 'Adicionar') : null));
 }
 
 // ---------------------------------------------------------------- categorias ativas ao rolar

@@ -229,3 +229,28 @@ test('promoção de hoje com um sabor só não oferece o meio a meio', async ({ 
     sql('delete from public.weekly_promotions');
   }
 });
+
+test('"Mais pedidos" só aparece com o selo marcado no painel e os cards mostram o botão Adicionar', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('#mais-pedidos')).toHaveCount(0);
+  // preço em confirmação não mostra "Adicionar"; sabor com preço mostra
+  await expect(card(page, 'Calabresa').locator('.card-add')).toHaveText('Adicionar');
+  await expect(card(page, 'Lombo').locator('.card-add')).toHaveCount(0);
+  sql("update public.products set badge = 'Mais pedido' where name in ('Calabresa', 'Frango com Catupiry')");
+  try {
+    await page.reload();
+    const featured = page.locator('#mais-pedidos');
+    await expect(featured.locator('.section-title')).toHaveText('Mais pedidos');
+    await expect(featured.locator('.card')).toHaveCount(2);
+    // continua na categoria de origem e a busca esconde o destaque
+    await expect(card(page, 'Calabresa')).toHaveCount(2); // no destaque e na categoria
+    await expect(page.locator('.section').locator(card(page, 'Calabresa'))).toHaveCount(1);
+    await featured.locator(card(page, 'Calabresa')).click();
+    await expect(page.locator('dialog[open] .sheet-title')).toHaveText('Calabresa');
+    await page.keyboard.press('Escape');
+    await page.locator('#search').fill('calabresa');
+    await expect(page.locator('#mais-pedidos')).toHaveCount(0);
+  } finally {
+    sql("update public.products set badge = null where badge = 'Mais pedido'");
+  }
+});

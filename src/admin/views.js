@@ -54,7 +54,7 @@ export async function productsView() {
       { key: 'size_ids', label: 'Tamanhos oferecidos', type: 'multi', options: await options('pizza_sizes'), show: isPizza },
       { key: 'flavor_ids', label: 'Sabores permitidos', type: 'multi', options: await options('pizza_flavors'), show: isPizza },
       { key: 'extra_ids', label: 'Adicionais permitidos', type: 'multi', options: await options('extras') },
-      { key: 'badge', label: 'Selo (opcional)', maxlength: 30, placeholder: 'Promoção, Novo, Mais pedido…' },
+      { key: 'badge', label: 'Selo (opcional)', maxlength: 30, placeholder: 'Promoção, Novo, Mais pedido…', help: 'Com o selo "Mais pedido" o produto também aparece no destaque "Mais pedidos", no topo do cardápio (até 6).' },
       { key: 'available', label: 'Disponível no cardápio', type: 'bool' },
       sortField,
     ],
