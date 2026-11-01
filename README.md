@@ -99,11 +99,19 @@ acesso ao painel do Supabase consegue.
 3. Desmarque **Modo demonstração** quando os dados forem reais.
 4. Cadastre categorias, produtos, tamanhos, sabores e preços por tamanho,
    bordas, adicionais, bairros/taxas, formas de pagamento e horários.
-   Fotos enviadas pelo painel são reduzidas automaticamente (até 1600 px) antes
-   do envio, e a foto antiga é apagada do Storage quando você troca ou exclui.
-   A aba **Fotos** mostra todos os produtos em grade: "Enviar foto" grava na
-   hora, e "Enviar várias fotos" liga cada arquivo ao produto de mesmo nome
-   (ex.: `frango-com-catupiry.webp`), mostrando a lista para conferir antes.
+   A aba **Imagens** cuida das fotos dos produtos:
+   - **Trocar imagem**: escolha a foto no celular ou no computador, veja a
+     prévia ao lado da atual, ajuste o texto alternativo e só então salve.
+   - **Adicionar várias imagens**: cada arquivo é ligado ao produto de mesmo
+     nome (ex.: `frango-com-catupiry.webp`). Na dúvida (dois produtos
+     parecidos ou dois arquivos para o mesmo produto) o painel pede que você
+     escolha. Mostra prévia, progresso, resultado e permite cancelar.
+   - **Biblioteca de Imagens**: tudo o que foi enviado, separado por tipo
+     (pizzas salgadas, doces, bebidas, combos, adicionais, outros). Imagens
+     trocadas não são apagadas: ficam como "sem produto" até você excluir.
+   Toda foto é conferida pelo conteúdo (só JPG, PNG, WebP e AVIF de verdade),
+   redesenhada (o que descarta metadados como GPS), reduzida para até
+   1200 px em WebP e ganha uma miniatura de 400 px para o cardápio.
    Para trocar a demonstração pelos dados reais, rode o bloco
    "LIMPAR DEMONSTRAÇÃO" no fim de `supabase/seed_demo.sql`.
 

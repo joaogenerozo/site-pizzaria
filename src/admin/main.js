@@ -15,7 +15,7 @@ import { photosView } from './photos.js';
 const root = document.getElementById('admin');
 const TABS = [
   ['produtos', 'Produtos', productsView],
-  ['fotos', 'Fotos', photosView],
+  ['imagens', 'Imagens', photosView],
   ['categorias', 'Categorias', categoriesView],
   ['pizzas', 'Pizzas', pizzaView],
   ['promocoes', 'Promoções da semana', weeklyPromosView],

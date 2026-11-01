@@ -383,7 +383,8 @@ function productCard(p, category) {
         hasPromo ? h('span', { class: 'price-old' }, formatCents(p.priceCents)) : null,
         h('span', { class: `price${hasPromo ? ' price-promo' : ''}` }, formatCents(p.fromCents)))),
   p.image_url
-    ? h('img', { class: 'thumb', src: p.image_url, alt: productImageAlt(p.name, category.name), loading: 'lazy', decoding: 'async', width: 96, height: 96 })
+    // miniatura (400 px) no cartão; a foto grande só abre no detalhe do produto
+    ? h('img', { class: 'thumb', src: p.image_thumb_url || p.image_url, alt: p.image_alt || productImageAlt(p.name, category.name), loading: 'lazy', decoding: 'async', width: 96, height: 96 })
     : h('div', { class: 'thumb placeholder', 'aria-hidden': 'true' }, illustration(p, category.name)));
 }
 

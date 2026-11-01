@@ -37,7 +37,7 @@ export function openProductModal({ catalog, productId, categoryName, initial, pr
   const confirmBtn = h('button', { type: 'button', class: 'btn', onclick: confirm }, h('span', {}, confirmLabel), totalOut);
 
   const image = product.image_url
-    ? h('img', { class: 'sheet-hero', src: product.image_url, alt: productImageAlt(product.name, categoryName), decoding: 'async' })
+    ? h('img', { class: 'sheet-hero', src: product.image_url, alt: product.image_alt || productImageAlt(product.name, categoryName), decoding: 'async', width: 1200, height: 675 })
     : h('div', { class: 'sheet-hero placeholder' }, illustration(product, categoryName));
 
   dialog.append(
