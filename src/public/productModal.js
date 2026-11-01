@@ -5,6 +5,7 @@ import { crustsForSize } from '../lib/catalog.js';
 import { priceItem, MULTI_FLAVOR_RULES } from '../lib/pricing.js';
 import { MAX_NOTES, MAX_QTY } from '../lib/cart.js';
 import { productImageAlt } from '../lib/text.js';
+import { track, gaItem, centsToReais } from '../lib/analytics.js';
 
 // Abre a janela de personalização de um produto.
 // initial: seleção existente (edição de item do carrinho). onConfirm(selection).
@@ -26,6 +27,8 @@ export function openProductModal({ catalog, productId, categoryName, initial, pr
     notes: initial?.notes ?? '',
   };
   let showErrors = false;
+  // Editar um item que já está no carrinho não conta como ver/adicionar produto
+  const editing = initial?.productId !== undefined;
 
   const dialog = h('dialog', { class: 'sheet', 'aria-labelledby': 'pm-title' });
   const body = h('div', { class: 'sheet-body' });
@@ -257,6 +260,7 @@ export function openProductModal({ catalog, productId, categoryName, initial, pr
       return;
     }
     onConfirm?.({ ...sel, notes: notes.value });
+    if (!editing) track('add_to_cart', { value: centsToReais(result.lineCents), items: [gaItem(catalog, sel, result.lineCents)] });
     dialog.close();
   }
 
@@ -267,5 +271,6 @@ export function openProductModal({ catalog, productId, categoryName, initial, pr
   update();
   dialog.showModal();
   body.scrollTop = 0;
+  if (!editing) track('view_item', { value: centsToReais(product.fromCents), items: [gaItem(catalog, { productId })] });
   return dialog;
 }

@@ -10,6 +10,7 @@ import {
   buildOrderMessage, whatsappLink, normalizeBrPhone, formatBrPhone, cleanText, isValidWhatsappNumber,
 } from '../lib/whatsapp.js';
 import { openProductModal } from './productModal.js';
+import { track, gaItem, centsToReais } from '../lib/analytics.js';
 
 const CUSTOMER_KEY = 'cardapio-cliente-v1';
 const PAUSED_TEXT = 'A pizzaria não está recebendo pedidos agora. Seu carrinho fica guardado: volte mais tarde para enviar.';
@@ -129,7 +130,10 @@ export function openCartDrawer({ catalog, cart }) {
       paused ? h('p', { class: 'notice warn', role: 'alert' }, PAUSED_TEXT) : null);
     foot.append(
       h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => dialog.close() }, 'Adicionar mais'),
-      h('button', { class: 'btn', type: 'button', id: 'go-details', disabled: paused, onclick: () => { step = 'details'; render(); } }, 'Continuar'));
+      h('button', { class: 'btn', type: 'button', id: 'go-details', disabled: paused, onclick: () => {
+        track('begin_checkout', { value: centsToReais(estimate), items: cart.items.map((it) => gaItem(catalog, it, priceItem(catalog, it).lineCents)).filter(Boolean) });
+        step = 'details'; render();
+      } }, 'Continuar'));
   }
 
   function editItem(index) {
@@ -328,7 +332,12 @@ export function openCartDrawer({ catalog, cart }) {
     // internos do Instagram/Facebook costumam aceitar melhor um toque num link.
     foot.append(canSend
       ? whatsappAnchor(whatsappLink(s.whatsapp_number, buildOrderMessage(order)), 'send-whatsapp', 'Enviar pedido pelo WhatsApp',
-        () => setTimeout(() => { step = 'sent'; render(); }, 0))
+        () => {
+          // Abriu o WhatsApp com o pedido: é um contato (lead), não uma venda. A venda só
+          // existe quando a pizzaria confirma por lá, e isso o site não fica sabendo.
+          track('generate_lead', { lead_source: 'pedido', value: centsToReais(order.totalCents) });
+          setTimeout(() => { step = 'sent'; render(); }, 0);
+        })
       : h('button', { class: 'btn btn-whatsapp', type: 'button', id: 'send-whatsapp', disabled: true }, 'Enviar pedido pelo WhatsApp'));
   }
 

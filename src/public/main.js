@@ -10,6 +10,7 @@ import { priceItem } from '../lib/pricing.js';
 import { createCart } from '../lib/cart.js';
 import { openProductModal } from './productModal.js';
 import { openCartDrawer } from './cartDrawer.js';
+import { analyticsEnabled, consentChoice, initAnalytics, setConsent, track } from '../lib/analytics.js';
 
 const app = document.getElementById('app');
 export const cart = createCart();
@@ -51,6 +52,8 @@ function setupBrandImages() {
 }
 
 boot();
+
+initAnalytics();
 
 async function boot() {
   // Na primeira carga o esqueleto já está na página (index.html)
@@ -99,6 +102,7 @@ function render() {
     renderFooter(),
     h('div', { class: 'cart-bar', id: 'cart-bar' }),
     renderContactButton(),
+    consentChoice() === null ? renderConsent() : null,
   );
   renderMenu();
   renderCartBar();
@@ -523,7 +527,7 @@ function renderFooter() {
       s.maps_url ? h('p', {}, h('a', { href: s.maps_url, target: '_blank', rel: 'noopener noreferrer' }, 'Como chegar')) : null),
     h('div', {}, h('h3', {}, 'Contato'),
       s.phone_display ? h('p', {}, telHref(s.phone_display) ? h('a', { href: telHref(s.phone_display) }, s.phone_display) : s.phone_display) : null,
-      s.whatsapp_number ? h('p', {}, h('a', { href: `https://wa.me/${s.whatsapp_number}`, target: '_blank', rel: 'noopener noreferrer' }, 'WhatsApp')) : null,
+      s.whatsapp_number ? h('p', {}, h('a', { href: `https://wa.me/${s.whatsapp_number}`, target: '_blank', rel: 'noopener noreferrer', onclick: contactLead }, 'WhatsApp')) : null,
       s.instagram_url ? h('p', {}, h('a', { href: s.instagram_url, target: '_blank', rel: 'noopener noreferrer' }, 'Instagram')) : null,
       !s.phone_display && !s.whatsapp_number && !s.instagram_url ? h('p', {}, 'Contatos ainda não informados.') : null),
     h('div', {}, h('h3', {}, 'Horários'),
@@ -532,7 +536,27 @@ function renderFooter() {
     catalog.categories.length ? h('nav', { class: 'footer-nav', 'aria-labelledby': 'footer-menu-title' },
       h('h3', { id: 'footer-menu-title' }, 'Cardápio'),
       h('ul', {}, catalog.categories.map((c) => h('li', {}, categoryLink(c))))) : null,
-    h('p', { class: 'fine' }, `© ${year} ${s.name}. Os pedidos são enviados pelo WhatsApp e só são confirmados após a resposta da pizzaria. Seu nome, telefone e endereço ficam salvos só neste aparelho, para agilizar o próximo pedido, e vão para a pizzaria apenas na mensagem que você envia.`)));
+    h('p', { class: 'fine' }, `© ${year} ${s.name}. Os pedidos são enviados pelo WhatsApp e só são confirmados após a resposta da pizzaria. Seu nome, telefone e endereço ficam salvos só neste aparelho, para agilizar o próximo pedido, e vão para a pizzaria apenas na mensagem que você envia.`),
+    analyticsEnabled ? h('p', { class: 'fine' }, h('button', { type: 'button', class: 'link-btn', id: 'cookie-prefs', onclick: () => {
+      document.getElementById('consent')?.remove();
+      document.body.append(renderConsent());
+    } }, 'Preferências de cookies')) : null));
+}
+
+// Clique num WhatsApp sem pedido montado: contato, não venda
+const contactLead = () => track('generate_lead', { lead_source: 'contato' });
+
+// Aviso de cookies (LGPD): só aparece quando o Google Analytics está configurado.
+// Nada do Google é carregado antes do "Aceitar".
+function renderConsent() {
+  if (!analyticsEnabled) return null;
+  const close = (granted) => { setConsent(granted); box.remove(); };
+  const box = h('section', { class: 'consent', id: 'consent', role: 'region', 'aria-label': 'Aviso de cookies' },
+    h('p', {}, 'Usamos cookies do Google Analytics para entender como o cardápio é usado e melhorá-lo. Os dados do seu pedido não são enviados para medição.'),
+    h('div', { class: 'consent-actions' },
+      h('button', { type: 'button', class: 'btn btn-ghost', id: 'consent-deny', onclick: () => close(false) }, 'Recusar'),
+      h('button', { type: 'button', class: 'btn', id: 'consent-accept', onclick: () => close(true) }, 'Aceitar')));
+  return box;
 }
 
 // Botão fixo para falar com a pizzaria pelo WhatsApp, sem montar pedido
@@ -540,7 +564,7 @@ function renderContactButton() {
   const s = catalog.settings;
   if (!s.whatsapp_number) return null;
   const text = encodeURIComponent(`Olá, ${s.name}! Vim pelo cardápio do site e gostaria de falar com vocês.`);
-  return h('a', { class: 'wa-float', id: 'contact-whatsapp', href: `https://wa.me/${s.whatsapp_number}?text=${text}`, target: '_blank', rel: 'noopener noreferrer', 'aria-label': `Enviar mensagem para ${s.name} pelo WhatsApp` },
+  return h('a', { class: 'wa-float', id: 'contact-whatsapp', href: `https://wa.me/${s.whatsapp_number}?text=${text}`, target: '_blank', rel: 'noopener noreferrer', onclick: contactLead, 'aria-label': `Enviar mensagem para ${s.name} pelo WhatsApp` },
     icon('chat'), h('span', {}, 'Fale conosco'));
 }
 

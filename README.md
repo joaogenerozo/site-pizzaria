@@ -220,6 +220,28 @@ no console do navegador (F12).
   página inicial. Crie também o **Perfil da Empresa no Google** com o mesmo
   endereço e telefone e o link do site.
 
+### Google Analytics 4 e Search Console (opcionais)
+
+- **Search Console:** escolha o método de verificação **Tag HTML**, copie só o
+  código de dentro de `content="..."` para `VITE_GSC_VERIFICATION` no
+  `.env.production.local`, gere o build (passo 6) e publique. Depois clique em
+  **Verificar** no Search Console.
+- **Google Analytics 4:** crie a propriedade e o fluxo da Web, copie o **ID de
+  medição** (`G-XXXXXXXXXX`) para `VITE_GA4_ID`, gere o build e publique.
+  - Sem `VITE_GA4_ID`, nenhum script do Google é baixado e o `.htaccess` sai
+    igual. Com ele, o build libera no `.htaccess` (CSP) só os endereços do
+    Google Analytics.
+  - O visitante vê um aviso de cookies (LGPD). Nada é medido antes do
+    **Aceitar**; o link **Preferências de cookies** no rodapé permite mudar a
+    escolha.
+  - Eventos enviados: `view_item` (abriu um produto), `add_to_cart`,
+    `begin_checkout` (tocou em Continuar no carrinho) e `generate_lead` (tocou
+    no WhatsApp; `lead_source` = `pedido` ou `contato`). No GA4, marque
+    `generate_lead` como **evento-chave**.
+  - **Não existe evento `purchase`:** o pedido termina no WhatsApp e só vale
+    quando a pizzaria confirma, então tocar no WhatsApp é um contato, não uma
+    venda. Os dados do pedido (nome, telefone, endereço) nunca vão para o GA4.
+
 ## 10. Manter o Supabase ativo (plano grátis)
 
 O plano grátis do Supabase **pausa o projeto depois de 7 dias sem uso**, e aí
