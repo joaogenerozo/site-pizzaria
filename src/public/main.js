@@ -417,6 +417,7 @@ function productCard(p, category) {
       // miniatura (400 px) no cartão; a foto grande só abre no detalhe do produto
       ? h('img', { class: 'thumb', src: p.image_thumb_url || p.image_url, alt: p.image_alt || productImageAlt(p.name, category.name), loading: 'lazy', decoding: 'async', width: 96, height: 96 })
       : h('div', { class: 'thumb placeholder', 'aria-hidden': 'true' }, illustration(p, category.name)),
+    p.image_url ? h('span', { class: 'img-note' }, 'Imagem ilustrativa') : null,
     // Sinal visual de "pedir": o card inteiro já é o botão (card-open), então isto é só decorativo
     orderable ? h('span', { class: 'card-add', 'aria-hidden': 'true' }, icon('plus'), 'Adicionar') : null));
 }

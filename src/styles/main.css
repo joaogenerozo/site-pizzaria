@@ -238,6 +238,9 @@ main { padding-bottom: 120px; }
 }
 .thumb.placeholder { display: grid; place-items: center; }
 .card-media { flex: none; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+/* Aviso pequeno embaixo das fotos dos produtos */
+.img-note { font-size: 11px; line-height: 1.2; color: var(--ink-3); text-align: center; margin-top: -4px; }
+.sheet-img-note { margin: -10px 0 10px; text-align: right; }
 .card-add {
   display: inline-flex; align-items: center; justify-content: center; gap: 4px;
   width: 96px; min-height: 32px; border-radius: 999px;

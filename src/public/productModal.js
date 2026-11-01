@@ -63,6 +63,7 @@ export function openProductModal({ catalog, productId, categoryName, initial, pr
 
   add(body,
     image,
+    product.image_url ? h('p', { class: 'img-note sheet-img-note' }, 'Imagem ilustrativa') : null,
     h('h2', { class: 'sheet-title', id: 'pm-title' }, product.name),
     product.description ? h('p', { class: 'sheet-desc' }, product.description) : null,
     (product.kind === 'simple' && product.price_review) || (product.kind === 'pizza' && product.flavors.length === 1 && product.flavors[0].price_review)
