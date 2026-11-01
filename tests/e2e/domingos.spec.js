@@ -235,7 +235,7 @@ test('"Mais pedidos" só aparece com o selo marcado no painel e os cards mostram
   await expect(page.locator('#mais-pedidos')).toHaveCount(0);
   // preço em confirmação não mostra "Adicionar"; sabor com preço mostra
   await expect(card(page, 'Calabresa').locator('.card-add')).toHaveText('Adicionar');
-  await expect(card(page, 'Lombo').locator('.card-add')).toHaveCount(0);
+  await expect(card(page, 'Frango Barbecue').locator('.card-add')).toHaveCount(0);
   sql("update public.products set badge = 'Mais pedido' where name in ('Calabresa', 'Frango com Catupiry')");
   try {
     await page.reload();

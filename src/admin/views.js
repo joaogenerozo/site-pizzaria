@@ -40,12 +40,19 @@ export async function productsView() {
       { label: 'Preço', render: (r) => (r.kind === 'pizza' ? 'pelos sabores' : r.promo_price ? h('span', {}, h('s', {}, formatPrice(r.price)), ' ', formatPrice(r.promo_price)) : formatPrice(r.price)) },
       { label: 'Revisão', render: reviewCol },
     ],
+    // Trocou a imagem por aqui: a miniatura e o texto alternativo eram da foto antiga.
+    // (Só existem depois da atualização 006; sem ela a linha não tem essas colunas.)
+    beforeSave: (payload, row) => {
+      if (!row || payload.image_url === row.image_url) return;
+      if ('image_thumb_url' in row) payload.image_thumb_url = null;
+      if ('image_alt' in row) payload.image_alt = null;
+    },
     fields: async () => [
       { key: 'name', label: 'Nome', required: true, maxlength: 120 },
       { key: 'category_id', label: 'Categoria', type: 'select', required: true, options: cats },
       { key: 'kind', label: 'Tipo', type: 'select', required: true, options: [{ value: 'simple', label: 'Simples (preço fixo)' }, { value: 'pizza', label: 'Pizza (tamanho + sabores)' }] },
       { key: 'description', label: 'Descrição', type: 'textarea', maxlength: 1000 },
-      { key: 'image_url', label: 'Imagem (URL https)', type: 'image', help: 'Envie uma foto própria ou cole o endereço https de uma imagem que você tem direito de usar.' },
+      { key: 'image_url', label: 'Imagem (URL https)', type: 'image', help: 'Envie uma foto própria ou cole o endereço https de uma imagem que você tem direito de usar. Para miniatura e texto alternativo, use a aba Imagens.' },
       { key: 'price', label: 'Preço (R$)', type: 'money', show: isSimple, placeholder: '0,00' },
       { key: 'promo_price', label: 'Preço promocional (R$)', type: 'money', show: isSimple, help: 'Deixe vazio se não houver promoção. Precisa ser menor que o preço.' },
       { key: 'qty_promo_min', label: 'Promoção por quantidade: a partir de quantas unidades', type: 'int', min: 2, max: 99, show: isSimple },

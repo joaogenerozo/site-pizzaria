@@ -276,6 +276,32 @@ test('imagem de um produto: prévia antes de salvar, cancelar não grava, salvar
   await expect(page.locator('#photo-summary')).toHaveText('1 imagem na biblioteca. 1 está sem produto.');
 });
 
+test('trocar a imagem pelo cadastro do produto não deixa a miniatura antiga no cardápio', async ({ page }) => {
+  resetDb();
+  await page.context().route('https://example.com/**', (r) => r.fulfill({ path: FIX('esfiha.webp') }));
+  await login(page, ADMIN);
+  await page.click('a[href="#imagens"]');
+  const tile = page.locator('.adm-photo[data-name="Batata frita"]');
+  await tile.locator('input[type=file]').setInputFiles(FIX('batata-frita.jpg'));
+  await page.fill('#rep-alt', 'Porção de batata frita crocante');
+  await page.click('#rep-ok');
+  await expect(page.locator('.toast')).toHaveText('Imagem de “Batata frita” salva.');
+
+  // troca pelo formulário antigo (campo de endereço da imagem)
+  await page.click('a[href="#produtos"]');
+  await page.locator('.adm-table tr', { hasText: 'Batata frita' }).getByRole('button', { name: 'Editar' }).click();
+  await page.fill('#fld-image_url', 'https://example.com/batata-nova.webp');
+  await page.click('#adm-save');
+  await expect(page.locator('.toast')).toHaveText('Salvo.');
+
+  const pub = await page.context().newPage();
+  await pub.goto('/');
+  const img = pub.locator('.card', { hasText: 'Batata frita' }).locator('img.thumb');
+  await expect(img).toHaveAttribute('src', 'https://example.com/batata-nova.webp');
+  await expect(img).toHaveAttribute('alt', 'Batata frita - Porções'); // o texto da foto antiga não vale para a nova
+  await pub.close();
+});
+
 test('várias imagens: associa pelo nome, pede escolha na dúvida, recusa arquivo falso e mostra o progresso', async ({ page }) => {
   resetDb();
   await login(page, ADMIN);

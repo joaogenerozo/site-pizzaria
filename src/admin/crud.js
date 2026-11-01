@@ -142,6 +142,7 @@ export function crudView(cfg) {
       }
       const payload = {};
       for (const f of fields) if (f.type !== 'multi' && !f.virtual) payload[f.key] = v[f.key];
+      cfg.beforeSave?.(payload, row);
       const btn = dialog.querySelector('#adm-save');
       btn.disabled = true;
       const q = row
