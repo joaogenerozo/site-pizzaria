@@ -18,6 +18,10 @@ psql -q -d dev -c "insert into auth.users (id, email) values
   ('11111111-1111-1111-1111-111111111111','admin@teste.local'),
   ('22222222-2222-2222-2222-222222222222','cliente@teste.local');
   insert into public.admins (user_id) values ('11111111-1111-1111-1111-111111111111');"
+# Só no banco local: o Storage falso responde em http://localhost, sem https
+psql -q -d dev -c "alter table products drop constraint if exists products_image_url_check, drop constraint if exists products_thumb_https;
+  alter table products add constraint products_image_url_check check (image_url is null or image_url ~ '^(https://|http://localhost[:/])'),
+    add constraint products_thumb_https check (image_thumb_url is null or image_thumb_url ~ '^(https://|http://localhost[:/])');"
 psql -q -d dev -c "notify pgrst, 'reload schema'"
 echo "banco dev recriado"
 # Se o PostgREST local estiver rodando, espera ele reconectar ao banco recriado

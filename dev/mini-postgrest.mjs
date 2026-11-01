@@ -20,6 +20,8 @@ const pool = new pg.Pool({
   database: process.env.PGDATABASE || 'dev',
   max: 4,
 });
+// dev/reset-db.sh recria o banco e derruba as conexões abertas: o pool só descarta a conexão
+pool.on('error', () => {});
 // Tipos devolvidos como texto, igual ao PostgREST (numeric "35.00", time "18:00:00")
 pg.types.setTypeParser(1700, (v) => Number(v));
 
@@ -179,7 +181,9 @@ createServer(async (req, res) => {
     res.end(json === null || json === undefined ? '' : JSON.stringify(json));
   };
   if (url.pathname === '/') return send(200, { ok: true });
+  let role = 'anon';
   try {
+    role = roleFrom(req).role;
     const out = await handle(req, url, raw ? JSON.parse(raw) : null);
     const headers = {};
     if (out.total !== undefined && out.total !== null) headers['Content-Range'] = `${out.json.length ? `0-${out.json.length - 1}` : '*'}/${out.total}`;
@@ -192,7 +196,8 @@ createServer(async (req, res) => {
   } catch (e) {
     const status = e.status || PG_STATUS[e.code] || 400;
     // PostgREST devolve 401 para o visitante sem permissão e 403 para o usuário logado
-    const fixed = status === 403 && !req.headers.authorization ? 401 : status;
+    const fixed = status === 403 && role === 'anon' ? 401 : status;
+    if (process.env.DEBUG) console.error(req.method, req.url, fixed, e.message);
     send(fixed, { code: e.code || 'PGRST000', message: e.message, details: e.detail || null, hint: e.hint || null });
   }
 }).listen(54330, () => console.log('mini-postgrest em http://localhost:54330'));
