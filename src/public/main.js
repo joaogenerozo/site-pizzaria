@@ -3,19 +3,24 @@ import { h, clear, add } from '../lib/dom.js';
 import { icon, illustration, pizzaArt } from '../lib/icons.js';
 import { formatCents, formatPrice } from '../lib/money.js';
 import { matchesSearch, normalize, productImageAlt } from '../lib/text.js';
-import { openStatus, describeStatus, hoursByDay, nowInZone } from '../lib/hours.js';
+import { openStatus, describeStatus, hoursByDay, nowInZone, WEEKDAYS } from '../lib/hours.js';
 import { loadMenuData } from '../lib/api.js';
 import { buildCatalog } from '../lib/catalog.js';
 import { priceItem } from '../lib/pricing.js';
 import { createCart } from '../lib/cart.js';
 import { openProductModal } from './productModal.js';
 import { openCartDrawer } from './cartDrawer.js';
+import { analyticsEnabled, consentChoice, initAnalytics, setConsent, track } from '../lib/analytics.js';
 
 const app = document.getElementById('app');
 export const cart = createCart();
 let catalog = null;
 let query = '';
 let slugs = new Map(); // id da categoria -> âncora legível (#pizzas-de-calabresa)
+// Cartões já montados: a busca reaproveita os mesmos elementos em vez de recriar
+// tudo a cada letra (resposta mais rápida no celular e as fotos não recarregam)
+let cardCache = new Map();
+let featuredCache = new Map();
 
 // O index.html já traz o topo com a marca e o esqueleto do cardápio: a página
 // pinta antes do JavaScript e dos dados chegarem (melhora FCP/LCP). A faixa da
@@ -47,6 +52,8 @@ function setupBrandImages() {
 }
 
 boot();
+
+initAnalytics();
 
 async function boot() {
   // Na primeira carga o esqueleto já está na página (index.html)
@@ -84,6 +91,8 @@ function render() {
   const s = catalog.settings;
   document.title = `${s.name} | Cardápio e pedidos pelo WhatsApp`;
   slugs = categorySlugs(catalog.categories);
+  cardCache = new Map();
+  featuredCache = new Map();
   add(clear(app),
     s.is_demo ? h('div', { class: 'demo-banner', role: 'note' },
       h('strong', {}, 'Modo demonstração: '), 'nome, produtos, preços e taxas são fictícios.') : null,
@@ -93,6 +102,7 @@ function render() {
     renderFooter(),
     h('div', { class: 'cart-bar', id: 'cart-bar' }),
     renderContactButton(),
+    consentChoice() === null ? renderConsent() : null,
   );
   renderMenu();
   renderCartBar();
@@ -177,7 +187,7 @@ function renderToolbar() {
 // ---------------------------------------------------------------- links internos
 // Cada categoria tem uma âncora legível e estável, derivada do nome
 // (#pizzas-de-calabresa), em vez do código interno do banco.
-const RESERVED_IDS = new Set(['app', 'menu', 'search', 'cat-nav', 'cart-bar', 'open-cart', 'contact-whatsapp', 'info-title', 'pm-title', 'cart-title']);
+const RESERVED_IDS = new Set(['app', 'menu', 'search', 'cat-nav', 'cart-bar', 'open-cart', 'contact-whatsapp', 'info-title', 'pm-title', 'cart-title', 'mais-pedidos', 't-mais-pedidos', 'promocao-de-hoje', 'promo-title']);
 function categorySlugs(categories) {
   const map = new Map();
   const used = new Set(RESERVED_IDS);
@@ -236,6 +246,7 @@ function renderMenu() {
       h('p', {}, 'Ainda não há produtos disponíveis. Volte em breve!')));
     return;
   }
+  if (!query.trim()) main.append(...[renderWeeklyPromos(), renderFeatured()].filter(Boolean));
   let shown = 0;
   for (const c of catalog.categories) {
     const items = c.products.filter((p) => matchesSearch(query, p.name, p.description, c.name,
@@ -246,7 +257,7 @@ function renderMenu() {
     main.append(h('section', { class: 'section', id: slugs.get(c.id), dataset: { cat: c.id }, 'aria-labelledby': `t-${c.id}` },
       h('h2', { class: 'section-title', id: `t-${c.id}` }, c.name),
       c.description ? h('p', { class: 'card-desc', style: 'margin:-6px 0 12px' }, c.description) : null,
-      h('div', { class: 'grid' }, items.map((p) => productCard(p, c)))));
+      h('div', { class: 'grid' }, items.map((p) => cachedCard(p, c)))));
   }
   if (!shown) {
     main.append(h('div', { class: 'state' }, icon('search'), h('h2', {}, 'Nada encontrado'),
@@ -254,33 +265,136 @@ function renderMenu() {
   }
 }
 
+// "Mais pedidos": só aparece quando a pizzaria marca o selo "Mais pedido" (ou "Mais vendido")
+// num produto pelo painel. Nada é escolhido automaticamente.
+const FEATURED_BADGE = /\bmais\s+(pedid|vendid)/i;
+function renderFeatured() {
+  const items = catalog.categories.flatMap((c) => c.products
+    .filter((p) => p.badge && FEATURED_BADGE.test(p.badge)).map((p) => [p, c]));
+  if (!items.length) return null;
+  return h('section', { class: 'featured', id: 'mais-pedidos', 'aria-labelledby': 't-mais-pedidos' },
+    h('h2', { class: 'section-title', id: 't-mais-pedidos' }, 'Mais pedidos'),
+    h('div', { class: 'grid' }, items.slice(0, 6).map(([p, c]) => cachedCard(p, c, featuredCache))));
+}
+
+// ---------------------------------------------------------------- promoções da semana
+// Ordem de exibição: segunda a domingo
+const PROMO_DAYS = [1, 2, 3, 4, 5, 6, 0];
+const WEEKDAY_FULL = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+
+// Faixa no topo do cardápio: as pizzas em promoção hoje (clicáveis) e a lista da semana
+function renderWeeklyPromos() {
+  const all = catalog.weeklyPromos;
+  if (!all.length) return null;
+  const todays = catalog.todayPromos;
+  const sameOffer = (list) => list.length && list.every((w) => w.size.id === list[0].size.id && w.priceCents === list[0].priceCents);
+  const offerText = (list) => (sameOffer(list) ? `pizza ${list[0].size.name} por ${formatCents(list[0].priceCents)}` : 'preços especiais');
+  const flavorList = (list) => list.map((w) => w.flavor.name).join(', ').replace(/, ([^,]*)$/, ' e $1');
+
+  const week = h('details', { class: 'promo-week' },
+    h('summary', {}, 'Promoções de cada dia da semana'),
+    h('table', { class: 'hours-table' }, h('tbody', {}, PROMO_DAYS.map((d) => {
+      const list = all.filter((w) => w.weekday === d);
+      return h('tr', { class: d === catalog.today ? 'today' : '' },
+        h('td', {}, WEEKDAYS[d]),
+        h('td', {}, list.length ? `${flavorList(list)} · ${offerText(list)}` : 'Sem promoção'));
+    }))));
+
+  if (!todays.length) {
+    return h('section', { class: 'promo-today is-empty', 'aria-label': 'Promoções da semana' },
+      h('p', { class: 'promo-sub' }, `Hoje (${WEEKDAY_FULL[catalog.today]}) não tem promoção do dia.`), week);
+  }
+  return h('section', { class: 'promo-today', id: 'promocao-de-hoje', 'aria-labelledby': 'promo-title' },
+    h('span', { class: 'badge' }, 'Promoção de hoje'),
+    h('h2', { class: 'promo-title', id: 'promo-title' },
+      sameOffer(todays) ? `${capitalize(WEEKDAY_FULL[catalog.today])}: ${offerText(todays)}` : `Promoção de ${WEEKDAY_FULL[catalog.today]}`),
+    h('p', { class: 'promo-sub' }, 'Escolha um destes sabores:'),
+    h('div', { class: 'promo-list' }, todays.map((w) => {
+      const label = [h('span', { class: 'promo-flavor' }, w.flavor.name),
+        h('span', { class: 'promo-price' }, `${w.size.name} `, h('span', { class: 'price-old' }, formatCents(w.regularCents)), ` ${formatCents(w.priceCents)}`)];
+      if (!w.product) return h('span', { class: 'promo-item' }, label);
+      const category = catalog.categories.find((c) => c.id === w.product.category_id);
+      return h('button', {
+        type: 'button', class: 'promo-item',
+        'aria-label': `${w.flavor.name}, ${w.size.name} por ${formatCents(w.priceCents)} (de ${formatCents(w.regularCents)})`,
+        onclick: () => openProductModal({
+          catalog, productId: w.product.id, categoryName: category?.name ?? '', initial: { sizeId: w.size.id },
+          onConfirm: (sel) => { cart.add(sel); toast(`${w.product.name} adicionado ao carrinho`); },
+        }),
+      }, label);
+    })),
+    halfHalfPromo(todays, sameOffer(todays)),
+    h('p', { class: 'promo-note' }, 'Vale só hoje, no tamanho indicado. Na meio a meio, vale quando os dois sabores estão na promoção.'),
+    week);
+}
+
+// Meio a meio da promoção: abre a pizza de 2 sabores só com o tamanho e os sabores de hoje
+function halfHalfPromo(todays, sameOffer) {
+  if (todays.length < 2 || !sameOffer) return null;
+  const { size, priceCents } = todays[0];
+  const ids = todays.map((w) => w.flavor.id);
+  const product = [...catalog.products.values()].find((p) => p.kind === 'pizza'
+    && p.sizes.some((s) => s.id === size.id && s.max_flavors >= 2)
+    && ids.filter((id) => p.flavors.some((f) => f.id === id)).length >= 2);
+  if (!product) return null;
+  const flavorIds = ids.filter((id) => product.flavors.some((f) => f.id === id));
+  const text = `Adicione dois sabores da promoção por apenas ${formatCents(priceCents)}`;
+  const category = catalog.categories.find((c) => c.id === product.category_id);
+  return h('button', {
+    type: 'button', class: 'promo-half',
+    'aria-label': `Meio a meio: ${text.toLowerCase()} (pizza ${size.name})`,
+    onclick: () => openProductModal({
+      catalog, productId: product.id, categoryName: category?.name ?? '', initial: { sizeId: size.id },
+      promo: { sizeId: size.id, flavorIds, text: `Promoção de hoje: escolha dois sabores da promoção, pizza ${size.name} por ${formatCents(priceCents)}.` },
+      onConfirm: (sel) => { cart.add(sel); toast(`${product.name} adicionado ao carrinho`); },
+    }),
+  }, h('span', { class: 'promo-flavor' }, h('span', { class: 'promo-half-tag' }, 'Meio a meio'), ` ${text}`));
+}
+
+const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+function cachedCard(p, category, cache = cardCache) {
+  let card = cache.get(p.id);
+  if (!card) cache.set(p.id, (card = productCard(p, category)));
+  return card;
+}
+
 function productCard(p, category) {
   const hasPromo = p.kind === 'simple' && !p.price_review && p.promoCents !== null;
   let pizzaHint = null;
   let sizePrices = null;
+  let weeklyPromo = false;
   if (p.kind === 'pizza' && p.sizes.length) {
     const only = p.flavors.length === 1 ? p.flavors[0] : null;
-    if (only && !only.price_review) {
-      // Card de um sabor: mostra o preço de cada tamanho (ex.: P R$ 40,00 · M R$ 45,00 · G R$ 55,90)
+    weeklyPromo = !!only && p.sizes.some((s) => catalog.flavorPrice(only.id, s.id)?.weekly);
+    if (only && (!only.price_review || weeklyPromo)) {
+      // Card de um sabor: mostra o preço de cada tamanho (ex.: P R$ 40,00 · M R$ 45,00 · G R$ 55,90).
+      // Sabor em confirmação só mostra o tamanho da promoção de hoje (o único com preço definido).
       sizePrices = p.sizes.map((s) => {
         const fp = catalog.flavorPrice(only.id, s.id);
-        return fp ? h('span', { class: 'size-price' }, h('b', {}, s.name), ` ${formatCents(fp.effectiveCents)}`) : null;
+        if (!fp || (only.price_review && !fp.weekly)) return null;
+        return fp.weekly
+          ? h('span', { class: 'size-price promo' }, h('b', {}, s.name), ' ', h('s', { class: 'price-old' }, formatCents(fp.priceCents)), ` ${formatCents(fp.effectiveCents)}`)
+          : h('span', { class: 'size-price' }, h('b', {}, s.name), ` ${formatCents(fp.effectiveCents)}`);
       }).filter(Boolean);
     } else if (!only) {
       const maxF = Math.max(...p.sizes.map((s) => s.max_flavors));
       pizzaHint = `${p.sizes.map((s) => s.name).join(', ')} · até ${maxF} sabor${maxF > 1 ? 'es' : ''}`;
     }
   }
+  // Item com preço em confirmação abre o detalhe, mas não dá para pedir
+  const orderable = p.fromCents !== null && !(sizePrices && !sizePrices.length);
   const qtyHint = p.qtyPromoMin ? `A partir de ${p.qtyPromoMin} un.: ${formatCents(p.qtyPromoCents)} cada` : null;
 
   // Card = artigo com título; o botão fica no título e cobre o card inteiro (ver .card-open no CSS)
   return h('article', { class: 'card', dataset: { product: p.id } },
   h('div', { class: 'card-body' },
-    p.badge ? h('span', { class: `badge${hasPromo || /promo/i.test(p.badge) ? ' promo' : ''}` }, p.badge) : null,
+    weeklyPromo ? h('span', { class: 'badge promo' }, 'Promoção de hoje')
+      : p.badge ? h('span', { class: `badge${hasPromo || /promo/i.test(p.badge) ? ' promo' : ''}` }, p.badge) : null,
     h('h3', { class: 'card-name' }, h('button', {
       type: 'button', class: 'card-open',
       'aria-label': p.fromCents === null ? `${p.name}, preço em confirmação`
-        : sizePrices?.length ? `${p.name}, ${sizePrices.map((el) => el.textContent).join(', ')}`
+        : sizePrices?.length ? `${p.name}${weeklyPromo ? ', promoção de hoje' : ''}, ${sizePrices.map((el) => el.textContent).join(', ')}`
           : `${p.name}, ${p.kind === 'pizza' ? 'a partir de ' : ''}${formatCents(p.fromCents)}`,
       onclick: () => openProductModal({
         catalog, productId: p.id, categoryName: category.name,
@@ -298,9 +412,14 @@ function productCard(p, category) {
         p.kind === 'pizza' ? h('span', { class: 'price-from' }, 'a partir de') : null,
         hasPromo ? h('span', { class: 'price-old' }, formatCents(p.priceCents)) : null,
         h('span', { class: `price${hasPromo ? ' price-promo' : ''}` }, formatCents(p.fromCents)))),
-  p.image_url
-    ? h('img', { class: 'thumb', src: p.image_url, alt: productImageAlt(p.name, category.name), loading: 'lazy', decoding: 'async', width: 96, height: 96 })
-    : h('div', { class: 'thumb placeholder', 'aria-hidden': 'true' }, illustration(p, category.name)));
+  h('div', { class: 'card-media' },
+    p.image_url
+      // miniatura (400 px) no cartão; a foto grande só abre no detalhe do produto
+      ? h('img', { class: 'thumb', src: p.image_thumb_url || p.image_url, alt: p.image_alt || productImageAlt(p.name, category.name), loading: 'lazy', decoding: 'async', width: 96, height: 96 })
+      : h('div', { class: 'thumb placeholder', 'aria-hidden': 'true' }, illustration(p, category.name)),
+    p.image_url ? h('span', { class: 'img-note' }, 'Imagem ilustrativa') : null,
+    // Sinal visual de "pedir": o card inteiro já é o botão (card-open), então isto é só decorativo
+    orderable ? h('span', { class: 'card-add', 'aria-hidden': 'true' }, icon('plus'), 'Adicionar') : null));
 }
 
 // ---------------------------------------------------------------- categorias ativas ao rolar
@@ -409,7 +528,7 @@ function renderFooter() {
       s.maps_url ? h('p', {}, h('a', { href: s.maps_url, target: '_blank', rel: 'noopener noreferrer' }, 'Como chegar')) : null),
     h('div', {}, h('h3', {}, 'Contato'),
       s.phone_display ? h('p', {}, telHref(s.phone_display) ? h('a', { href: telHref(s.phone_display) }, s.phone_display) : s.phone_display) : null,
-      s.whatsapp_number ? h('p', {}, h('a', { href: `https://wa.me/${s.whatsapp_number}`, target: '_blank', rel: 'noopener noreferrer' }, 'WhatsApp')) : null,
+      s.whatsapp_number ? h('p', {}, h('a', { href: `https://wa.me/${s.whatsapp_number}`, target: '_blank', rel: 'noopener noreferrer', onclick: contactLead }, 'WhatsApp')) : null,
       s.instagram_url ? h('p', {}, h('a', { href: s.instagram_url, target: '_blank', rel: 'noopener noreferrer' }, 'Instagram')) : null,
       !s.phone_display && !s.whatsapp_number && !s.instagram_url ? h('p', {}, 'Contatos ainda não informados.') : null),
     h('div', {}, h('h3', {}, 'Horários'),
@@ -418,7 +537,27 @@ function renderFooter() {
     catalog.categories.length ? h('nav', { class: 'footer-nav', 'aria-labelledby': 'footer-menu-title' },
       h('h3', { id: 'footer-menu-title' }, 'Cardápio'),
       h('ul', {}, catalog.categories.map((c) => h('li', {}, categoryLink(c))))) : null,
-    h('p', { class: 'fine' }, `© ${year} ${s.name}. Os pedidos são enviados pelo WhatsApp e só são confirmados após a resposta da pizzaria. Seu nome, telefone e endereço ficam salvos só neste aparelho, para agilizar o próximo pedido, e vão para a pizzaria apenas na mensagem que você envia.`)));
+    h('p', { class: 'fine' }, `© ${year} ${s.name}. Os pedidos são enviados pelo WhatsApp e só são confirmados após a resposta da pizzaria. Seu nome, telefone e endereço ficam salvos só neste aparelho, para agilizar o próximo pedido, e vão para a pizzaria apenas na mensagem que você envia.`),
+    analyticsEnabled ? h('p', { class: 'fine' }, h('button', { type: 'button', class: 'link-btn', id: 'cookie-prefs', onclick: () => {
+      document.getElementById('consent')?.remove();
+      document.body.append(renderConsent());
+    } }, 'Preferências de cookies')) : null));
+}
+
+// Clique num WhatsApp sem pedido montado: contato, não venda
+const contactLead = () => track('generate_lead', { lead_source: 'contato' });
+
+// Aviso de cookies (LGPD): só aparece quando o Google Analytics está configurado.
+// Nada do Google é carregado antes do "Aceitar".
+function renderConsent() {
+  if (!analyticsEnabled) return null;
+  const close = (granted) => { setConsent(granted); box.remove(); };
+  const box = h('section', { class: 'consent', id: 'consent', role: 'region', 'aria-label': 'Aviso de cookies' },
+    h('p', {}, 'Usamos cookies do Google Analytics para entender como o cardápio é usado e melhorá-lo. Os dados do seu pedido não são enviados para medição.'),
+    h('div', { class: 'consent-actions' },
+      h('button', { type: 'button', class: 'btn btn-ghost', id: 'consent-deny', onclick: () => close(false) }, 'Recusar'),
+      h('button', { type: 'button', class: 'btn', id: 'consent-accept', onclick: () => close(true) }, 'Aceitar')));
+  return box;
 }
 
 // Botão fixo para falar com a pizzaria pelo WhatsApp, sem montar pedido
@@ -426,7 +565,7 @@ function renderContactButton() {
   const s = catalog.settings;
   if (!s.whatsapp_number) return null;
   const text = encodeURIComponent(`Olá, ${s.name}! Vim pelo cardápio do site e gostaria de falar com vocês.`);
-  return h('a', { class: 'wa-float', id: 'contact-whatsapp', href: `https://wa.me/${s.whatsapp_number}?text=${text}`, target: '_blank', rel: 'noopener noreferrer', 'aria-label': `Enviar mensagem para ${s.name} pelo WhatsApp` },
+  return h('a', { class: 'wa-float', id: 'contact-whatsapp', href: `https://wa.me/${s.whatsapp_number}?text=${text}`, target: '_blank', rel: 'noopener noreferrer', onclick: contactLead, 'aria-label': `Enviar mensagem para ${s.name} pelo WhatsApp` },
     icon('chat'), h('span', {}, 'Fale conosco'));
 }
 

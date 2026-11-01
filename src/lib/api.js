@@ -47,7 +47,9 @@ async function fetchMenuTables() {
     if (MENU_TABLES.every((t) => Array.isArray(data?.[t]))) return data;
   } catch { /* cai no caminho antigo abaixo */ }
   const rows = await Promise.all(MENU_TABLES.map((t) => select(t)));
-  return Object.fromEntries(MENU_TABLES.map((t, i) => [t, rows[i]]));
+  // Promoções da semana são opcionais: sem a atualização 003 no banco, o cardápio abre sem elas
+  const weekly = await select('weekly_promotions').catch(() => []);
+  return { ...Object.fromEntries(MENU_TABLES.map((t, i) => [t, rows[i]])), weekly_promotions: weekly };
 }
 
 // Carrega todas as tabelas públicas do cardápio.
@@ -61,6 +63,9 @@ export async function loadMenuData() {
     categories: d.categories, products: d.products, sizes: d.pizza_sizes, flavors: d.pizza_flavors,
     flavorPrices: d.flavor_prices, productSizes: d.product_sizes, productFlavors: d.product_flavors,
     crusts: d.crusts, crustPrices: d.crust_prices, extras: d.extras, productExtras: d.product_extras,
+    weeklyPromos: Array.isArray(d.weekly_promotions) ? d.weekly_promotions : [],
+    // Dia da semana pelo relógio do servidor (o mesmo que calculate_order usa)
+    today: Number.isInteger(d.today) ? d.today : null,
   };
 }
 

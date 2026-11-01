@@ -3,7 +3,12 @@ import { execSync } from 'node:child_process';
 
 // Cardápio real (supabase/seed_domingos.sql). Recria o banco com ele antes e
 // volta para a demonstração depois, para não afetar os outros testes.
-test.beforeAll(() => execSync('bash dev/reset-db.sh', { stdio: 'ignore', env: { ...process.env, SEED: 'domingos' } }));
+// As promoções da semana dependem do dia: começam apagadas e o teste de promoção cria as de "hoje".
+const sql = (q) => execSync(`psql -q -d dev -c "${q}"`, { stdio: 'ignore', env: { PGHOST: 'localhost', PGPORT: '5432', PGUSER: 'postgres', ...process.env } });
+test.beforeAll(() => {
+  execSync('bash dev/reset-db.sh', { stdio: 'ignore', env: { ...process.env, SEED: 'domingos' } });
+  sql('delete from public.weekly_promotions');
+});
 test.afterAll(() => execSync('bash dev/reset-db.sh', { stdio: 'ignore' }));
 
 let consoleErrors;
@@ -16,11 +21,11 @@ test.afterEach(() => expect(consoleErrors, 'erros no console').toEqual([]));
 
 const card = (page, name) => page.locator('.card').filter({ has: page.locator('.card-name', { hasText: new RegExp(`^${name}$`) }) });
 
-test('cardápio real: 12 categorias, 51 sabores + meio a meio e preços por tamanho', async ({ page }) => {
+test('cardápio real: 12 categorias, 52 sabores + meio a meio e preços por tamanho', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.section-title')).toHaveCount(12);
   await expect(page.locator('.section-title').first()).toHaveText('Pizza meio a meio');
-  await expect(page.locator('.card')).toHaveCount(52);
+  await expect(page.locator('.card')).toHaveCount(53);
   await expect(card(page, 'Pizza 2 sabores \\(meio a meio\\)')).toContainText('até 2 sabores');
   await expect(card(page, 'Calabresa').locator('.card-open')).toHaveAttribute('aria-label', 'Calabresa, P R$ 37,00, M R$ 45,00, G R$ 55,00');
   await expect(card(page, 'Júlia').locator('.card-open')).toHaveAttribute('aria-label', /G R\$ 65,90/);
@@ -122,4 +127,130 @@ test('SEO: dados estruturados da pizzaria (JSON-LD) e link direto para uma categ
   expect(ld.openingHoursSpecification[0]).toMatchObject({ opens: '18:00', closes: '22:00' });
   await expect(page.locator('h1')).toHaveCount(1);
   await expect(page.locator('.footer')).toContainText('Desde 2013');
+});
+
+test('promoção de hoje: faixa no topo, G por R$ 50 até o WhatsApp e sabor em confirmação liberado só no G', async ({ page, context }) => {
+  const today = "extract(dow from now() at time zone 'America/Sao_Paulo')";
+  sql(`insert into public.weekly_promotions (weekday, flavor_id, size_id, price, sort_order)
+    select ${today}, f.id, s.id, 50, f.sort_order from public.pizza_flavors f, public.pizza_sizes s
+    where s.name = 'G' and f.name in ('Mussarela', 'Siciliana')`);
+  sql(`insert into public.weekly_promotions (weekday, flavor_id, size_id, price)
+    select (${today}::int + 1) % 7, f.id, s.id, 40 from public.pizza_flavors f, public.pizza_sizes s where s.name = 'G' and f.name = 'Atum'`);
+  try {
+    let waUrl = null;
+    await context.route(/wa\.me|whatsapp\.com/, (r) => { waUrl ??= r.request().url(); r.fulfill({ status: 200, body: 'ok' }); });
+    await page.goto('/');
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await expect(page.locator('.promo-title')).toContainText('pizza G por R$ 50,00');
+    await expect(page.locator('.promo-item')).toHaveText([/Siciliana.*R\$ 50,00/, /Mussarela.*R\$ 50,00/]);
+    await expect(card(page, 'Siciliana')).toContainText('Promoção de hoje');
+    await expect(card(page, 'Siciliana').locator('.card-open')).toHaveAttribute('aria-label', /M R\$ 55,00, G R\$ 59,00 R\$ 50,00/);
+    await expect(card(page, 'Atum')).not.toContainText('Promoção de hoje'); // promoção de amanhã
+    await expect(card(page, 'Mussarela')).not.toContainText('Preço em confirmação');
+
+    // Mussarela (preço em confirmação) pela faixa: abre no G e só o G pode ser pedido
+    await page.locator('.promo-item', { hasText: 'Mussarela' }).click();
+    const opt = (name) => page.locator('label.opt').filter({ has: page.locator('.opt-name', { hasText: new RegExp(`^${name}$`) }) });
+    await expect(opt('M').locator('input')).toBeDisabled();
+    await expect(opt('G').locator('input')).toBeChecked();
+    await expect(page.locator('.sheet-foot .btn')).toContainText('R$ 50,00');
+    await page.locator('.sheet-foot .btn').click();
+    await card(page, 'Siciliana').click();
+    await opt('M').click();
+    await expect(page.locator('.sheet-foot .btn')).toContainText('R$ 55,00');
+    await opt('G').click();
+    await expect(page.locator('.sheet-foot .btn')).toContainText('R$ 50,00');
+    await page.locator('.sheet-foot .btn').click();
+    await expect(page.locator('#open-cart')).toContainText('R$ 100,00');
+
+    await page.locator('#open-cart').click();
+    await page.locator('#go-details').click();
+    await page.locator('.segmented label', { hasText: 'Retirada' }).click();
+    await page.locator('#f-name').fill('Maria');
+    await page.locator('#f-phone').fill('(35) 99876-5432');
+    await opt('Pix').click();
+    await page.locator('#go-review').click();
+    await expect(page.locator('.total-row.grand')).toContainText('R$ 100,00');
+    const popup = page.context().waitForEvent('page');
+    await page.locator('#send-whatsapp').click();
+    await (await popup).waitForLoadState();
+    const text = new URL(waUrl).searchParams.get('text');
+    expect(text).toContain('Valor do item: R$ 50,00 (promoção do dia)');
+    expect(text).toContain('TOTAL: R$ 100,00');
+  } finally {
+    sql('delete from public.weekly_promotions');
+  }
+});
+
+test('promoção de hoje: meio a meio com dois sabores da promoção por R$ 50', async ({ page }) => {
+  const today = "extract(dow from now() at time zone 'America/Sao_Paulo')";
+  sql(`insert into public.weekly_promotions (weekday, flavor_id, size_id, price, sort_order)
+    select ${today}, f.id, s.id, 50, f.sort_order from public.pizza_flavors f, public.pizza_sizes s
+    where s.name = 'G' and f.name in ('Portuguesa', 'Bacon', '4 Queijos')`);
+  try {
+    await page.goto('/');
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await expect(page.locator('.promo-half')).toContainText('Adicione dois sabores da promoção por apenas R$ 50,00');
+    await page.locator('.promo-half').click();
+    // só o tamanho G e os sabores de hoje
+    const group = (i) => page.locator('dialog .opt-group').nth(i);
+    await expect(group(0).locator('.opt-name')).toHaveText(['G']);
+    await expect(group(1).locator('.opt-name')).toHaveText([/^Bacon/, /^Portuguesa/, /^4 Queijos/]);
+    await group(1).locator('label.opt', { hasText: 'Bacon' }).click();
+    await group(1).locator('label.opt', { hasText: '4 Queijos' }).click();
+    await expect(page.locator('.sheet-foot .btn')).toContainText('R$ 50,00');
+    await page.locator('.sheet-foot .btn').click();
+    await expect(page.locator('#open-cart')).toContainText('R$ 50,00');
+
+    await page.locator('#open-cart').click();
+    await page.locator('#go-details').click();
+    await page.locator('.segmented label', { hasText: 'Retirada' }).click();
+    await page.locator('#f-name').fill('Maria');
+    await page.locator('#f-phone').fill('(35) 99876-5432');
+    await page.locator('label.opt', { hasText: 'Pix' }).click();
+    await page.locator('#go-review').click();
+    await expect(page.locator('.total-row.grand')).toContainText('R$ 50,00');
+  } finally {
+    sql('delete from public.weekly_promotions');
+  }
+});
+
+test('promoção de hoje com um sabor só não oferece o meio a meio', async ({ page }) => {
+  const today = "extract(dow from now() at time zone 'America/Sao_Paulo')";
+  sql(`insert into public.weekly_promotions (weekday, flavor_id, size_id, price)
+    select ${today}, f.id, s.id, 50 from public.pizza_flavors f, public.pizza_sizes s where s.name = 'G' and f.name = 'Bacon'`);
+  try {
+    await page.goto('/');
+    await expect(page.locator('.promo-item')).toHaveCount(1);
+    await expect(page.locator('.promo-half')).toHaveCount(0);
+  } finally {
+    sql('delete from public.weekly_promotions');
+  }
+});
+
+test('"Mais pedidos" só aparece com o selo marcado no painel e os cards mostram o botão Adicionar', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('#mais-pedidos')).toHaveCount(0);
+  // preço em confirmação não mostra "Adicionar"; sabor com preço mostra
+  await expect(card(page, 'Calabresa').locator('.card-add')).toHaveText('Adicionar');
+  await expect(card(page, 'Frango Barbecue').locator('.card-add')).toHaveCount(0);
+  sql("update public.products set badge = 'Mais pedido' where name in ('Calabresa', 'Frango com Catupiry')");
+  try {
+    await page.reload();
+    const featured = page.locator('#mais-pedidos');
+    await expect(featured.locator('.section-title')).toHaveText('Mais pedidos');
+    await expect(featured.locator('.card')).toHaveCount(2);
+    // continua na categoria de origem e a busca esconde o destaque
+    await expect(card(page, 'Calabresa')).toHaveCount(2); // no destaque e na categoria
+    await expect(page.locator('.section').locator(card(page, 'Calabresa'))).toHaveCount(1);
+    await featured.locator(card(page, 'Calabresa')).click();
+    await expect(page.locator('dialog[open] .sheet-title')).toHaveText('Calabresa');
+    await page.keyboard.press('Escape');
+    await page.locator('#search').fill('calabresa');
+    await expect(page.locator('#mais-pedidos')).toHaveCount(0);
+  } finally {
+    sql("update public.products set badge = null where badge = 'Mais pedido'");
+  }
 });

@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { test, expect } from '@playwright/test';
 import { execSync } from 'node:child_process';
 import { signJwt } from '../../dev/make-jwt.mjs';
@@ -218,4 +219,157 @@ test('admin cadastra horário, bairro e forma de pagamento', async ({ page }) =>
   await page.fill('#fld-closes_at', '01:00');
   await page.click('#adm-save');
   await expect(hours.locator('tr', { hasText: 'Segunda' })).toContainText('01:00');
+});
+
+const FIX = (name) => path.join(import.meta.dirname, 'fixtures', name);
+
+test('imagem de um produto: prévia antes de salvar, cancelar não grava, salvar grava miniatura e texto alternativo', async ({ page }) => {
+  resetDb();
+  await login(page, ADMIN);
+  await page.click('a[href="#imagens"]');
+  await expect(page.locator('#photo-summary')).toHaveText(/^0 de \d+ produtos com imagem\.$/);
+  const tile = page.locator('.adm-photo[data-name="Batata frita"]');
+  await expect(tile.locator('label.btn')).toHaveText('Adicionar imagem');
+  await expect(tile.locator('.tag-warn')).toHaveText('Sem imagem');
+
+  // escolhe a foto e desiste: nada muda
+  await tile.locator('input[type=file]').setInputFiles(FIX('batata-frita.jpg'));
+  await expect(page.locator('#rep-preview')).toBeVisible();
+  await expect(page.locator('#rep-info')).toContainText('1800×1200 px');
+  await expect(page.locator('#rep-info')).toContainText('1200×800 px');
+  await page.click('#rep-cancel');
+  await expect(page.locator('#rep-t')).toHaveCount(0);
+  await expect(tile.locator('.tag-warn')).toHaveText('Sem imagem');
+
+  // agora salva, com texto alternativo próprio
+  await tile.locator('input[type=file]').setInputFiles(FIX('batata-frita.jpg'));
+  await expect(page.locator('#rep-ok')).toBeEnabled();
+  await page.fill('#rep-alt', 'Porção de batata frita crocante');
+  await page.click('#rep-ok');
+  await expect(page.locator('.toast')).toHaveText('Imagem de “Batata frita” salva.');
+  await expect(page.locator('#photo-summary')).toHaveText(/^1 de \d+ produtos com imagem\.$/);
+  await expect(tile.locator('label.btn')).toHaveText('Trocar imagem');
+  await expect(tile.locator('img')).toHaveAttribute('src', /\/produtos\/batata-frita-[a-z0-9]{6}-mini\.webp$/);
+  await expect(tile.locator('.adm-alt input')).toHaveValue('Porção de batata frita crocante');
+
+  // visualizar abre a imagem grande
+  await tile.getByRole('button', { name: 'Visualizar', exact: true }).click();
+  await expect(page.locator('#view-img')).toHaveAttribute('src', /\/produtos\/batata-frita-[a-z0-9]{6}\.webp$/);
+  await expect(page.locator('.adm-viewer')).toContainText('Texto alternativo: Porção de batata frita crocante');
+  await page.getByRole('button', { name: 'Fechar', exact: true }).last().click();
+
+  // o cardápio mostra a miniatura com o texto alternativo
+  const pub = await page.context().newPage();
+  await pub.goto('/');
+  const img = pub.locator('.card', { hasText: 'Batata frita' }).locator('img.thumb');
+  await expect(img).toHaveAttribute('alt', 'Porção de batata frita crocante');
+  await expect(img).toHaveAttribute('src', /-mini\.webp$/);
+  expect(await img.evaluate((el) => el.complete && el.naturalWidth)).toBeGreaterThan(0);
+  await pub.close();
+
+  // remover: some do produto, mas continua na biblioteca
+  await tile.getByRole('button', { name: 'Remover imagem de Batata frita' }).click();
+  await page.click('#rm-ok');
+  await expect(page.locator('.toast')).toHaveText('Imagem de “Batata frita” removida.');
+  await expect(tile.locator('.tag-warn')).toHaveText('Sem imagem');
+  await page.click('#seg-biblioteca');
+  await expect(page.locator('#photo-summary')).toHaveText('1 imagem na biblioteca. 1 está sem produto.');
+});
+
+test('trocar a imagem pelo cadastro do produto não deixa a miniatura antiga no cardápio', async ({ page }) => {
+  resetDb();
+  await page.context().route('https://example.com/**', (r) => r.fulfill({ path: FIX('esfiha.webp') }));
+  await login(page, ADMIN);
+  await page.click('a[href="#imagens"]');
+  const tile = page.locator('.adm-photo[data-name="Batata frita"]');
+  await tile.locator('input[type=file]').setInputFiles(FIX('batata-frita.jpg'));
+  await page.fill('#rep-alt', 'Porção de batata frita crocante');
+  await page.click('#rep-ok');
+  await expect(page.locator('.toast')).toHaveText('Imagem de “Batata frita” salva.');
+
+  // troca pelo formulário antigo (campo de endereço da imagem)
+  await page.click('a[href="#produtos"]');
+  await page.locator('.adm-table tr', { hasText: 'Batata frita' }).getByRole('button', { name: 'Editar' }).click();
+  await page.fill('#fld-image_url', 'https://example.com/batata-nova.webp');
+  await page.click('#adm-save');
+  await expect(page.locator('.toast')).toHaveText('Salvo.');
+
+  const pub = await page.context().newPage();
+  await pub.goto('/');
+  const img = pub.locator('.card', { hasText: 'Batata frita' }).locator('img.thumb');
+  await expect(img).toHaveAttribute('src', 'https://example.com/batata-nova.webp');
+  await expect(img).toHaveAttribute('alt', 'Batata frita - Porções'); // o texto da foto antiga não vale para a nova
+  await pub.close();
+});
+
+test('várias imagens: associa pelo nome, pede escolha na dúvida, recusa arquivo falso e mostra o progresso', async ({ page }) => {
+  resetDb();
+  await login(page, ADMIN);
+  await page.click('a[href="#imagens"]');
+  await page.locator('#photo-bulk').setInputFiles([
+    FIX('Esfiha de queijo.png'), FIX('esfiha.webp'), FIX('logo-antiga.jpg'), FIX('nao-e-imagem.jpg')]);
+  const row = (name) => page.locator(`.adm-bulk-row[data-file="${name}"]`);
+  await expect(row('Esfiha de queijo.png').locator('.adm-match')).toContainText('Nome igual ao do produto');
+  await expect(row('Esfiha de queijo.png').locator('select')).toHaveValue(/.+/);
+  // "esfiha" serve para duas esfihas: não escolhe sozinho e não deixa enviar
+  await expect(row('esfiha.webp').locator('.adm-match')).toContainText('Mais de um produto possível');
+  await expect(row('esfiha.webp').locator('select')).toHaveValue('');
+  await expect(row('logo-antiga.jpg').locator('select')).toHaveValue('__biblioteca__');
+  // conteúdo não é imagem (executável com extensão .jpg): fica de fora
+  await expect(row('nao-e-imagem.jpg')).toHaveClass(/error/);
+  await expect(row('nao-e-imagem.jpg')).toContainText('não é uma imagem JPG, PNG, WebP ou AVIF');
+  await expect(page.locator('#bulk-ok')).toBeDisabled();
+  await expect(page.locator('#bulk-note')).toContainText('1 precisa que você escolha o produto');
+
+  // escolher a mesma esfiha das duas linhas também bloqueia
+  await row('esfiha.webp').locator('select').selectOption({ label: 'Esfiha de queijo' });
+  await expect(page.locator('#bulk-ok')).toBeDisabled();
+  await expect(page.locator('#bulk-note')).toContainText('dois arquivos estão no mesmo produto');
+  await row('esfiha.webp').locator('select').selectOption({ label: 'Esfiha de carne' });
+  await expect(page.locator('#bulk-ok')).toHaveText('Enviar 3 imagens');
+  await page.click('#bulk-ok');
+  await expect(page.locator('#bulk-cancel')).toHaveText('Fechar');
+  await expect(page.locator('#bulk-note')).toHaveText('3 imagens salvas.');
+  await expect(row('Esfiha de queijo.png').locator('.adm-bulk-state')).toHaveText('Salva em Esfiha de queijo');
+  await expect(row('esfiha.webp').locator('.adm-bulk-state')).toHaveText('Salva em Esfiha de carne');
+  await expect(row('logo-antiga.jpg').locator('.adm-bulk-state')).toHaveText('Guardada na biblioteca');
+  await page.click('#bulk-cancel');
+  await expect(page.locator('#photo-summary')).toHaveText(/^2 de \d+ produtos com imagem\./);
+
+  // biblioteca: a sem produto aparece e pode ser associada depois
+  await page.click('#seg-biblioteca');
+  await expect(page.locator('#photo-summary')).toHaveText('3 imagens na biblioteca. 1 está sem produto.');
+  await page.check('#lib-orphans');
+  const orphan = page.locator('.adm-photo[data-name="logo-antiga.jpg"]');
+  await expect(orphan.locator('.tag-warn')).toHaveText('Sem produto');
+  await orphan.getByRole('button', { name: 'Associar' }).click();
+  await page.selectOption('#assign-product', { label: 'Esfiha de queijo' });
+  await expect(page.locator('#assign-warn')).toContainText('já tem imagem');
+  await page.click('#assign-ok');
+  await expect(page.locator('.toast')).toHaveText('Imagem associada a “Esfiha de queijo”.');
+  // a foto que saiu da esfiha virou "sem produto" e pode ser excluída de vez
+  const old = page.locator('.adm-photo[data-name="Esfiha de queijo.png"]');
+  await expect(old.locator('.tag-warn')).toHaveText('Sem produto');
+  await old.getByRole('button', { name: 'Excluir' }).click();
+  await page.click('#rm-ok');
+  await expect(page.locator('.toast')).toHaveText('Imagem excluída.');
+  await page.uncheck('#lib-orphans');
+  await expect(page.locator('#photo-summary')).toHaveText('2 imagens na biblioteca.');
+});
+
+test('imagens: visitante e usuário comum não enviam arquivos nem leem a biblioteca', async ({ request }) => {
+  const anon = process.env.LOCAL_ANON_KEY;
+  test.skip(!anon, 'defina LOCAL_ANON_KEY');
+  const STORAGE = 'http://localhost:5173/storage/v1/object/menu-images/produtos/teste.webp';
+  const body = { headers: { apikey: anon, Authorization: `Bearer ${anon}`, 'Content-Type': 'image/webp' }, data: Buffer.from('RIFF0000WEBPVP8 ') };
+  expect((await request.post(STORAGE, body)).status(), 'visitante envia imagem').toBe(403);
+  let r = await request.get(`${REST}/media_images`, { headers: { apikey: anon, Authorization: `Bearer ${anon}` } });
+  expect(r.status(), 'visitante lê a biblioteca').toBe(401);
+  const tok = await (await request.post('http://localhost:5173/auth/v1/token?grant_type=password', { data: { email: CLIENT[0], password: CLIENT[1] } })).json();
+  const uh = { apikey: anon, Authorization: `Bearer ${tok.access_token}` };
+  expect((await request.post(STORAGE, { ...body, headers: { ...body.headers, ...uh } })).status(), 'comum envia imagem').toBe(403);
+  r = await request.get(`${REST}/media_images`, { headers: uh });
+  expect(await r.json(), 'comum não vê a biblioteca').toEqual([]);
+  r = await request.post(`${REST}/media_images`, { headers: { ...uh, 'Content-Type': 'application/json' }, data: { path: 'x.webp', url: 'https://x/x.webp', mime: 'image/webp' } });
+  expect(r.status(), 'comum grava na biblioteca').toBe(403);
 });

@@ -77,7 +77,9 @@
       { "nome": "4 Queijos", "ingredientes": "Mussarela, requeijão, parmesão e provolone", "precos": { "P": 45.00, "M": 55.00, "G": 65.00 } },
       { "nome": "5 Queijos", "ingredientes": "Mussarela, requeijão, parmesão, provolone e gorgonzola", "precos": { "P": 50.00, "M": 60.00, "G": 70.00 } },
       { "nome": "Catupiry", "ingredientes": "Mussarela e requeijão", "precos": { "P": 40.00, "M": 50.00, "G": 55.90 } },
-      { "nome": "Catupiry com Bacon", "ingredientes": "Mussarela, requeijão e bacon", "precos": { "P": 45.00, "M": 55.00, "G": 59.90 } }
+      { "nome": "Catupiry com Bacon", "ingredientes": "Mussarela, requeijão e bacon", "precos": { "P": 45.00, "M": 55.00, "G": 59.90 } },
+      { "nome": "Marguerita", "ingredientes": "Mussarela, tomate e manjericão", "precos": { "P": 40.00, "M": 45.00, "G": 55.90 },
+        "origem": "Não está no cardápio impresso. Criada para a promoção de sexta com os preços da Portuguesa (pedido de João Paulo em 29/10/2026)." }
     ]},
     { "nome": "Pizzas de lombo", "pizzas": [
       { "nome": "Lombo", "ingredientes": "Mussarela, lombo defumado e cebola", "precos": { "P": 50.00, "M": 45.00, "G": 55.90 },
@@ -123,9 +125,22 @@
     { "nome": "Cebola", "preco": 5.00 },
     { "nome": "Tomate", "preco": 5.00 }
   ],
+  "promocoes_semanais": {
+    "fonte": "Pedido de João Paulo em 28/10/2026: 3 sabores por dia por R$ 50,00. Terça não tem (pizzaria fechada).",
+    "tamanho": "G",
+    "preco": 50.00,
+    "dias": [
+      { "dia": "segunda", "sabores": ["Portuguesa", "Bacon", "4 Queijos"] },
+      { "dia": "quarta", "sabores": ["Mussarela", "Bauru", "Siciliana"] },
+      { "dia": "quinta", "sabores": ["Strogonoff de Boi", "Strogonoff de Frango", "Frango com Catupiry"] },
+      { "dia": "sexta", "sabores": ["Marguerita", "Brócolis 3", "Calabresa da Casa"] },
+      { "dia": "sábado", "sabores": ["Portuguesa", "Milho", "Lombo Requeijão"] },
+      { "dia": "domingo", "sabores": ["Mussarela", "Bacon e Palmito", "Banana Nevada"] }
+    ]
+  },
   "pendencias": [
     "O cardápio impresso não diz se as bordas têm o mesmo preço em P, M e G; o site usa o mesmo valor nos três tamanhos.",
     "Taxas de entrega por bairro não constam no cardápio; o site mostra \"taxa a combinar\".",
-    "\"Todos os dias duas pizzas na promoção\": o cardápio não diz quais; nenhuma promoção foi cadastrada."
+    "Marguerita: ingredientes (mussarela, tomate e manjericão) definidos pelo site; os preços são os da Portuguesa, a pedido de João Paulo. Confirmar os ingredientes."
   ]
 }

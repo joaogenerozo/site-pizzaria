@@ -1,5 +1,6 @@
 // Servidor de login FALSO, só para testes locais. Imita os endpoints do
-// Supabase Auth usados pelo painel (/auth/v1/token, /user, /recover, /logout).
+// Supabase Auth usados pelo painel (/auth/v1/token, /user, /recover, /logout)
+// e o Storage das fotos (/storage/v1/object/...).
 // Em produção quem faz isso é o próprio Supabase.
 import { createServer } from 'node:http';
 import { signJwt } from './make-jwt.mjs';
@@ -20,11 +21,54 @@ const session = (email, u) => ({
   refresh_token: `refresh-${email}`, user: userObj(email, u),
 });
 
+// Storage FALSO (bucket menu-images em memória): envio, leitura pública e exclusão das fotos do painel.
+const files = new Map(); // caminho -> { type, data }
+const adminFrom = (req) => {
+  const token = (req.headers.authorization || '').replace(/^Bearer /, '');
+  try { return JSON.parse(Buffer.from(token.split('.')[1] || 'e30', 'base64url').toString()).sub === USERS['admin@teste.local'].id; } catch { return false; }
+};
+// O supabase-js manda o arquivo como multipart/form-data; pega a parte com o arquivo.
+function fileFrom(req, buf) {
+  const type = req.headers['content-type'] || '';
+  const boundary = /boundary=(.+)$/.exec(type)?.[1];
+  if (!boundary) return { type, data: buf };
+  for (const part of buf.toString('latin1').split(`--${boundary}`)) {
+    const [head, ...rest] = part.split('\r\n\r\n');
+    const ct = /content-type:\s*([^\r\n]+)/i.exec(head)?.[1];
+    if (ct && /^image\//.test(ct)) return { type: ct, data: Buffer.from(rest.join('\r\n\r\n').replace(/\r\n$/, ''), 'latin1') };
+  }
+  return null;
+}
+function storage(req, res, buf, url) {
+  const m = /^\/storage\/v1\/object\/(public\/)?menu-images\/?(.*)$/.exec(url.pathname);
+  if (!m) return false;
+  const path = decodeURIComponent(m[2]);
+  if (req.method === 'GET' && m[1]) {
+    const f = files.get(path);
+    if (!f) send(res, 404, { message: 'Object not found' });
+    else { res.writeHead(200, { 'Content-Type': f.type }); res.end(f.data); }
+  } else if (!adminFrom(req)) {
+    send(res, 403, { statusCode: '403', error: 'Unauthorized', message: 'new row violates row-level security policy' });
+  } else if (req.method === 'POST' && path) {
+    const f = fileFrom(req, buf);
+    if (!f || !f.data.length) send(res, 400, { statusCode: '400', error: 'Bad request', message: 'Empty file' });
+    else if (f.data.length > 2097152) send(res, 413, { statusCode: '413', error: 'Payload too large', message: 'The object exceeded the maximum allowed size' });
+    else { files.set(path, f); send(res, 200, { Key: `menu-images/${path}`, Id: path }); }
+  } else if (req.method === 'DELETE') {
+    const gone = (JSON.parse(buf.toString() || '{}').prefixes || []).filter((p) => files.delete(p));
+    send(res, 200, gone.map((name) => ({ name })));
+  } else send(res, 404, { msg: 'not found (mock storage)' });
+  return true;
+}
+
 createServer(async (req, res) => {
-  let raw = '';
-  for await (const chunk of req) raw += chunk;
-  const body = raw ? JSON.parse(raw) : {};
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  const buf = Buffer.concat(chunks);
   const url = new URL(req.url, 'http://x');
+  if (storage(req, res, buf, url)) return;
+  const raw = buf.toString();
+  const body = raw ? JSON.parse(raw) : {};
 
   if (req.method === 'POST' && url.pathname === '/auth/v1/token') {
     if (url.searchParams.get('grant_type') === 'password') {

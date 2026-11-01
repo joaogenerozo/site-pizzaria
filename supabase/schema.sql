@@ -237,6 +237,21 @@ create table public.product_extras (
   primary key (product_id, extra_id)
 );
 
+-- Promoção semanal: em um dia da semana, um sabor num tamanho sai por um preço
+-- fixo (ex.: segunda, Portuguesa G por R$ 50,00). O dia é o do fuso da loja.
+create table public.weekly_promotions (
+  id         uuid primary key default gen_random_uuid(),
+  weekday    smallint not null check (weekday between 0 and 6), -- 0 = domingo
+  flavor_id  uuid not null references public.pizza_flavors (id) on delete cascade,
+  size_id    uuid not null references public.pizza_sizes (id) on delete cascade,
+  price      numeric(10,2) not null check (price >= 0),
+  active     boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (weekday, flavor_id, size_id)
+);
+
 create index on public.products (category_id, sort_order);
 create index on public.flavor_prices (size_id);
 create index on public.crust_prices (size_id);
@@ -250,7 +265,7 @@ begin
   foreach t in array array[
     'store_settings','opening_hours','payment_methods','delivery_zones',
     'categories','products','pizza_sizes','pizza_flavors','flavor_prices',
-    'crusts','crust_prices','extras'
+    'crusts','crust_prices','extras','weekly_promotions'
   ] loop
     execute format(
       'create trigger %I before update on public.%I
@@ -269,7 +284,8 @@ grant select on
   public.delivery_zones, public.categories, public.products,
   public.pizza_sizes, public.pizza_flavors, public.flavor_prices,
   public.product_sizes, public.product_flavors, public.crusts,
-  public.crust_prices, public.extras, public.product_extras
+  public.crust_prices, public.extras, public.product_extras,
+  public.weekly_promotions
 to anon, authenticated;
 
 -- Escrita só para logados; o RLS abaixo restringe a administradores.
@@ -278,7 +294,8 @@ grant insert, update, delete on
   public.delivery_zones, public.categories, public.products,
   public.pizza_sizes, public.pizza_flavors, public.flavor_prices,
   public.product_sizes, public.product_flavors, public.crusts,
-  public.crust_prices, public.extras, public.product_extras
+  public.crust_prices, public.extras, public.product_extras,
+  public.weekly_promotions
 to authenticated;
 grant update on public.store_settings to authenticated; -- sem insert/delete: linha única
 
@@ -306,6 +323,7 @@ alter table public.crusts          enable row level security;
 alter table public.crust_prices    enable row level security;
 alter table public.extras          enable row level security;
 alter table public.product_extras  enable row level security;
+alter table public.weekly_promotions enable row level security;
 
 -- admins: cada usuário vê apenas se ele mesmo é admin. Nenhuma política de escrita.
 create policy admins_select_self on public.admins
@@ -330,6 +348,7 @@ create policy public_read on public.pizza_sizes     for select to anon, authenti
 create policy public_read on public.pizza_flavors   for select to anon, authenticated using (active or (select public.is_admin()));
 create policy public_read on public.crusts          for select to anon, authenticated using (active or (select public.is_admin()));
 create policy public_read on public.extras          for select to anon, authenticated using (active or (select public.is_admin()));
+create policy public_read on public.weekly_promotions for select to anon, authenticated using (active or (select public.is_admin()));
 
 -- Escrita: somente administradores
 create policy admin_update on public.store_settings for update to authenticated
@@ -341,7 +360,7 @@ begin
   foreach t in array array[
     'opening_hours','payment_methods','delivery_zones','categories','products',
     'pizza_sizes','pizza_flavors','flavor_prices','product_sizes','product_flavors',
-    'crusts','crust_prices','extras','product_extras'
+    'crusts','crust_prices','extras','product_extras','weekly_promotions'
   ] loop
     execute format('create policy admin_insert on public.%I for insert to authenticated with check ((select public.is_admin()))', t);
     execute format('create policy admin_update on public.%I for update to authenticated using ((select public.is_admin())) with check ((select public.is_admin()))', t);
@@ -393,9 +412,15 @@ declare
   fee        numeric(10,2) := 0;
   min_order  numeric(10,2);
   qp         record;
+  today      smallint;
+  n_review   integer;
+  n_weekly   integer;
+  is_weekly  boolean;
 begin
   select * into s from public.store_settings where id = 1;
   if not found then raise exception 'Loja não configurada'; end if;
+  -- dia da semana no fuso da loja (0 = domingo), para a promoção semanal
+  today := extract(dow from now() at time zone s.timezone);
   if not s.accepting_orders then raise exception 'A loja não está aceitando pedidos no momento'; end if;
 
   if p_items is null or jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) = 0 then
@@ -455,6 +480,7 @@ begin
     end if;
 
     crust_val := 0;
+    is_weekly := false;
 
     if p.kind = 'simple' then
       base := coalesce(p.promo_price, p.price);
@@ -481,24 +507,31 @@ begin
         select distinct (x)::uuid as fid
         from jsonb_array_elements_text(item->'flavor_ids') x
       ), priced as (
-        select coalesce(fp.promo_price, fp.price) as v
+        -- promoção semanal de hoje: vale o menor entre ela e o preço do sabor
+        select least(coalesce(fp.promo_price, fp.price), coalesce(wp.price, fp.price)) as v,
+               f.price_review,
+               wp.price is not null and wp.price < coalesce(fp.promo_price, fp.price) as weekly
         from chosen c
         join public.pizza_flavors f on f.id = c.fid and f.active
         join public.product_flavors pf on pf.flavor_id = f.id and pf.product_id = p.id
         join public.flavor_prices fp on fp.flavor_id = f.id and fp.size_id = sz.id
+        left join public.weekly_promotions wp
+          on wp.flavor_id = f.id and wp.size_id = sz.id and wp.weekday = today and wp.active
       )
       select case when s.multi_flavor_rule = 'media' then round(avg(v), 2) else max(v) end,
-             count(*)
-        into base, n_found
+             count(*),
+             -- sabor em confirmação só pode ser pedido no dia e tamanho da promoção (preço definido)
+             count(*) filter (where price_review and not weekly),
+             count(*) filter (where weekly)
+        into base, n_found, n_review, n_weekly
         from priced;
       if n_found <> n_flavors then
         raise exception 'Item %: sabor inválido, repetido ou sem preço no tamanho %', idx, sz.name;
       end if;
-      if exists (select 1 from public.pizza_flavors f
-                 where f.price_review
-                   and f.id in (select (x)::uuid from jsonb_array_elements_text(item->'flavor_ids') x)) then
+      if n_review > 0 then
         raise exception 'Item %: preço de sabor em confirmação', idx;
       end if;
+      is_weekly := n_weekly = n_found;
 
       if item ? 'crust_id' and jsonb_typeof(item->'crust_id') <> 'null' then
         select cp.price into crust_val
@@ -514,7 +547,7 @@ begin
 
     lines := lines || jsonb_build_object(
       'index', idx, 'product_id', p.id, 'quantity', qty,
-      'unit_price', unit, 'line_total', unit * qty);
+      'unit_price', unit, 'line_total', unit * qty, 'weekly_promo', is_weekly);
     subtotal := subtotal + unit * qty;
   end loop;
 
@@ -581,9 +614,203 @@ as $$
     'crusts',          (select coalesce(jsonb_agg(to_jsonb(t)), '[]') from public.crusts t),
     'crust_prices',    (select coalesce(jsonb_agg(to_jsonb(t)), '[]') from public.crust_prices t),
     'extras',          (select coalesce(jsonb_agg(to_jsonb(t)), '[]') from public.extras t),
-    'product_extras',  (select coalesce(jsonb_agg(to_jsonb(t)), '[]') from public.product_extras t)
+    'product_extras',  (select coalesce(jsonb_agg(to_jsonb(t)), '[]') from public.product_extras t),
+    'weekly_promotions', (select coalesce(jsonb_agg(to_jsonb(t)), '[]') from public.weekly_promotions t),
+    -- dia da semana no fuso da loja, pelo relógio do servidor (o do celular pode estar errado)
+    'today', (select extract(dow from now() at time zone t.timezone)::int from public.store_settings t where t.id = 1)
   );
 $$;
 
 revoke execute on function public.menu_data() from public;
 grant execute on function public.menu_data() to anon, authenticated;
+
+-- =====================================================================
+-- SEO dos produtos e biblioteca de imagens (mesmo conteúdo da atualização 006)
+-- =====================================================================
+-- ---------------------------------------------------------------------
+-- Endereço amigável (slug): "Frango com Catupiry" -> "pizza-frango-com-catupiry"
+-- ---------------------------------------------------------------------
+create or replace function public.slugify(txt text)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  select trim(both '-' from regexp_replace(
+    translate(lower(coalesce(txt, '')),
+      'áàâãäåéèêëíìîïóòôõöúùûüçñý', 'aaaaaaeeeeiiiiooooouuuucny'),
+    '[^a-z0-9]+', '-', 'g'));
+$$;
+
+-- Tipo da categoria: organiza a Biblioteca de Imagens e o painel
+alter table public.categories
+  add column if not exists slug text,
+  add column if not exists group_type text not null default 'outros';
+
+do $$ begin
+  alter table public.categories add constraint categories_slug_format check (slug is null or slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  alter table public.categories add constraint categories_group_type check (group_type in ('pizzas_salgadas', 'pizzas_doces', 'bebidas', 'combos', 'adicionais', 'outros'));
+exception when duplicate_object then null; end $$;
+
+alter table public.products
+  add column if not exists slug            text,
+  add column if not exists image_alt       text,
+  add column if not exists image_thumb_url text,
+  add column if not exists seo_keyword     text,
+  add column if not exists ingredients     text;
+
+do $$ begin
+  alter table public.products add constraint products_slug_format check (slug is null or slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  alter table public.products add constraint products_image_alt_len check (char_length(image_alt) <= 200);
+exception when duplicate_object then null; end $$;
+do $$ begin
+  alter table public.products add constraint products_thumb_https check (image_thumb_url is null or image_thumb_url ~ '^https://');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  alter table public.products add constraint products_seo_keyword_len check (char_length(seo_keyword) <= 80);
+exception when duplicate_object then null; end $$;
+do $$ begin
+  alter table public.products add constraint products_ingredients_len check (char_length(ingredients) <= 500);
+exception when duplicate_object then null; end $$;
+
+create unique index if not exists products_slug_key on public.products (slug);
+create unique index if not exists categories_slug_key on public.categories (slug);
+
+-- Slug sugerido para um produto novo, sem repetir um que já existe
+create or replace function public.unique_slug(tbl text, base text, self uuid)
+returns text
+language plpgsql
+set search_path = ''
+as $$
+declare
+  candidate text := nullif(base, '');
+  n int := 1;
+  taken boolean;
+begin
+  if candidate is null then return null; end if;
+  loop
+    execute format('select exists (select 1 from public.%I where slug = $1 and id is distinct from $2)', tbl)
+      into taken using candidate, self;
+    exit when not taken;
+    n := n + 1;
+    candidate := base || '-' || n;
+  end loop;
+  return candidate;
+end;
+$$;
+
+-- Tipo provável de uma categoria pelo nome (o admin pode trocar no painel)
+create or replace function public.guess_group_type(category_name text)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  select case
+    when public.slugify(category_name) ~ '^pizzas?-doces?' then 'pizzas_doces'
+    when public.slugify(category_name) ~ '^(bebidas?|refrigerantes?|cervejas?|sucos?)' then 'bebidas'
+    when public.slugify(category_name) ~ '^combos?' then 'combos'
+    when public.slugify(category_name) ~ '^(adicionais|adicional|bordas?)' then 'adicionais'
+    when public.slugify(category_name) ~ '^pizzas?' then 'pizzas_salgadas'
+    else 'outros'
+  end;
+$$;
+
+create or replace function public.fill_slug()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare base text;
+begin
+  -- categoria nova sem tipo escolhido: tenta adivinhar pelo nome
+  if tg_table_name = 'categories' and tg_op = 'INSERT' then
+    if to_jsonb(new)->>'group_type' = 'outros' then
+      new := jsonb_populate_record(new, jsonb_build_object('group_type', public.guess_group_type(new.name)));
+    end if;
+  end if;
+  if new.slug is not null and new.slug <> '' then return new; end if;
+  base := public.slugify(new.name);
+  -- pizzas ganham "pizza-" na frente: /pizza-calabresa é o que o cliente procura
+  if tg_table_name = 'products' then
+    if to_jsonb(new)->>'kind' = 'pizza' and base !~ '^pizza' then base := 'pizza-' || base; end if;
+  end if;
+  new.slug := public.unique_slug(tg_table_name, base, new.id);
+  return new;
+end;
+$$;
+
+drop trigger if exists products_fill_slug on public.products;
+create trigger products_fill_slug before insert or update on public.products
+  for each row execute function public.fill_slug();
+drop trigger if exists categories_fill_slug on public.categories;
+create trigger categories_fill_slug before insert or update on public.categories
+  for each row execute function public.fill_slug();
+
+-- Preenche só quem ainda não tem slug (o gatilho gera o valor). Linha por
+-- linha em ordem fixa, para nomes repetidos ganharem -2, -3 sempre igual.
+do $$
+declare r record;
+begin
+  for r in select id from public.categories where slug is null order by sort_order, name loop
+    update public.categories set slug = null where id = r.id and slug is null;
+  end loop;
+  for r in select id from public.products where slug is null order by sort_order, name loop
+    update public.products set slug = null where id = r.id and slug is null;
+  end loop;
+end $$;
+
+-- Tipo das categorias que já existem, só onde ainda está no padrão "outros".
+-- "Pizzas ..." só vira pizza salgada se a categoria tiver pizzas de verdade.
+update public.categories c set group_type = public.guess_group_type(c.name)
+  where c.group_type = 'outros' and public.guess_group_type(c.name) <> 'outros'
+    and (public.guess_group_type(c.name) <> 'pizzas_salgadas'
+         or exists (select 1 from public.products p where p.category_id = c.id and p.kind = 'pizza'));
+
+-- ---------------------------------------------------------------------
+-- Biblioteca de imagens (só administradores leem e gravam)
+-- ---------------------------------------------------------------------
+create table if not exists public.media_images (
+  id            uuid primary key default gen_random_uuid(),
+  path          text not null unique check (char_length(path) between 1 and 300),
+  url           text not null check (url ~ '^https?://'),
+  thumb_path    text check (char_length(thumb_path) <= 300),
+  thumb_url     text check (thumb_url is null or thumb_url ~ '^https?://'),
+  mime          text not null check (mime in ('image/webp', 'image/jpeg', 'image/png', 'image/avif')),
+  width         integer check (width > 0),
+  height        integer check (height > 0),
+  bytes         integer check (bytes > 0),
+  original_name text check (char_length(original_name) <= 200),
+  alt           text check (char_length(alt) <= 200),
+  group_type    text not null default 'outros'
+                check (group_type in ('pizzas_salgadas', 'pizzas_doces', 'bebidas', 'combos', 'adicionais', 'outros')),
+  created_by    uuid default auth.uid(),
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+
+drop trigger if exists media_images_updated_at on public.media_images;
+create trigger media_images_updated_at before update on public.media_images
+  for each row execute function public.set_updated_at();
+
+revoke all on public.media_images from anon, authenticated;
+grant select, insert, update, delete on public.media_images to authenticated;
+alter table public.media_images enable row level security;
+
+drop policy if exists media_admin_all on public.media_images;
+create policy media_admin_all on public.media_images
+  for all to authenticated
+  using ((select public.is_admin()))
+  with check ((select public.is_admin()));
+
+revoke execute on function public.slugify(text) from public;
+grant execute on function public.slugify(text) to anon, authenticated;
+revoke execute on function public.guess_group_type(text) from public;
+grant execute on function public.guess_group_type(text) to anon, authenticated;
+revoke execute on function public.unique_slug(text, text, uuid) from public, anon;
+grant execute on function public.unique_slug(text, text, uuid) to authenticated; -- usada pelo gatilho quando o admin grava
+revoke execute on function public.fill_slug() from public, anon;

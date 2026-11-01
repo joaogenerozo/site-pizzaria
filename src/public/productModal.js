@@ -5,12 +5,16 @@ import { crustsForSize } from '../lib/catalog.js';
 import { priceItem, MULTI_FLAVOR_RULES } from '../lib/pricing.js';
 import { MAX_NOTES, MAX_QTY } from '../lib/cart.js';
 import { productImageAlt } from '../lib/text.js';
+import { track, gaItem, centsToReais } from '../lib/analytics.js';
 
 // Abre a janela de personalização de um produto.
 // initial: seleção existente (edição de item do carrinho). onConfirm(selection).
-export function openProductModal({ catalog, productId, categoryName, initial, confirmLabel = 'Adicionar', onConfirm }) {
+// promo: { sizeId, flavorIds, text } mostra só o tamanho e os sabores da promoção de hoje (meio a meio da promoção).
+export function openProductModal({ catalog, productId, categoryName, initial, promo, confirmLabel = 'Adicionar', onConfirm }) {
   const product = catalog.products.get(productId);
   if (!product) return;
+  const sizes = promo ? product.sizes.filter((s) => s.id === promo.sizeId) : product.sizes;
+  const flavors = promo ? product.flavors.filter((f) => promo.flavorIds.includes(f.id)) : product.flavors;
 
   const sel = {
     productId,
@@ -23,6 +27,8 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
     notes: initial?.notes ?? '',
   };
   let showErrors = false;
+  // Editar um item que já está no carrinho não conta como ver/adicionar produto
+  const editing = initial?.productId !== undefined;
 
   const dialog = h('dialog', { class: 'sheet', 'aria-labelledby': 'pm-title' });
   const body = h('div', { class: 'sheet-body' });
@@ -34,7 +40,7 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
   const confirmBtn = h('button', { type: 'button', class: 'btn', onclick: confirm }, h('span', {}, confirmLabel), totalOut);
 
   const image = product.image_url
-    ? h('img', { class: 'sheet-hero', src: product.image_url, alt: productImageAlt(product.name, categoryName), decoding: 'async' })
+    ? h('img', { class: 'sheet-hero', src: product.image_url, alt: product.image_alt || productImageAlt(product.name, categoryName), decoding: 'async', width: 1200, height: 675 })
     : h('div', { class: 'sheet-hero placeholder' }, illustration(product, categoryName));
 
   dialog.append(
@@ -57,11 +63,13 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
 
   add(body,
     image,
+    product.image_url ? h('p', { class: 'img-note sheet-img-note' }, 'Imagem ilustrativa') : null,
     h('h2', { class: 'sheet-title', id: 'pm-title' }, product.name),
     product.description ? h('p', { class: 'sheet-desc' }, product.description) : null,
     (product.kind === 'simple' && product.price_review) || (product.kind === 'pizza' && product.flavors.length === 1 && product.flavors[0].price_review)
       ? h('p', { class: 'notice warn' }, 'O preço deste item ainda está em confirmação pela pizzaria. Ele poderá ser pedido assim que o valor for confirmado.')
       : null,
+    promo?.text ? h('p', { class: 'notice promo' }, promo.text) : null,
     groups,
     h('label', { class: 'field-label', for: 'pm-notes' }, 'Observações'),
     notes, counter,
@@ -89,10 +97,15 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
 
   const singleFlavor = product.kind === 'pizza' && product.flavors.length === 1;
   const singleReview = singleFlavor && product.flavors[0].price_review;
+  // Sabor em confirmação com promoção de hoje: dá para pedir só no tamanho da promoção (preço definido)
+  const weeklyOnly = (sizeId) => !!catalog.flavorPrice(product.flavors[0].id, sizeId)?.weekly;
+  const reviewOpen = singleReview && product.sizes.some((s) => weeklyOnly(s.id));
+  if (reviewOpen && sel.sizeId && !weeklyOnly(sel.sizeId)) sel.sizeId = null;
+  if (reviewOpen && !sel.sizeId) sel.sizeId = product.sizes.find((s) => weeklyOnly(s.id)).id;
   // Preço em confirmação: não dá para pedir, e o botão já diz o motivo (em vez de "Escolha o tamanho")
-  const blocked = (product.kind === 'simple' && product.price_review) || singleReview;
+  const blocked = (product.kind === 'simple' && product.price_review) || (singleReview && !reviewOpen);
 
-  const currentSize = () => product.sizes.find((s) => s.id === sel.sizeId) || null;
+  const currentSize = () => sizes.find((s) => s.id === sel.sizeId) || null;
 
   function legend(title, sub, required, done) {
     return h('legend', {},
@@ -103,9 +116,10 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
   function sizeGroup() {
     return h('fieldset', { class: 'opt-group' },
       legend('Tamanho', 'escolha 1', true, !!sel.sizeId),
-      product.sizes.map((s) => {
+      sizes.map((s) => {
         const from = minFlavorPrice(s.id);
-        const input = h('input', { type: 'radio', name: 'pm-size', value: s.id, checked: sel.sizeId === s.id });
+        const sizeClosed = reviewOpen && !weeklyOnly(s.id);
+        const input = h('input', { type: 'radio', name: 'pm-size', value: s.id, checked: sel.sizeId === s.id, disabled: sizeClosed });
         input.addEventListener('change', () => {
           sel.sizeId = s.id;
           // ao trocar de tamanho, respeita o novo limite e remove borda sem preço no tamanho
@@ -115,12 +129,12 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
         });
         const sub = [s.slices ? `${s.slices} pedaços` : null, singleFlavor ? null : `até ${s.max_flavors} sabor${s.max_flavors > 1 ? 'es' : ''}`].filter(Boolean).join(' · ');
         let price = null;
-        if (singleReview) price = reviewTag();
+        if (singleReview && (!reviewOpen || sizeClosed)) price = reviewTag();
         else if (singleFlavor) {
           const fp = catalog.flavorPrice(product.flavors[0].id, s.id);
           if (fp) price = priceTag(fp.effectiveCents, fp.promoCents !== null ? fp.priceCents : null);
         } else if (from !== null) price = h('span', { class: 'opt-price' }, `a partir de ${formatCents(from)}`);
-        return h('label', { class: 'opt' }, input,
+        return h('label', { class: `opt${sizeClosed ? ' disabled' : ''}` }, input,
           h('span', { class: 'opt-text' }, h('span', { class: 'opt-name' }, s.name), h('span', { class: 'opt-sub' }, sub)),
           price);
       }));
@@ -128,9 +142,9 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
 
   function minFlavorPrice(sizeId) {
     let min = null;
-    for (const f of product.flavors) {
+    for (const f of flavors) {
       const fp = catalog.flavorPrice(f.id, sizeId);
-      if (fp && !f.price_review && (min === null || fp.effectiveCents < min)) min = fp.effectiveCents;
+      if (fp && (!f.price_review || fp.weekly) && (min === null || fp.effectiveCents < min)) min = fp.effectiveCents;
     }
     return min;
   }
@@ -147,12 +161,13 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
       group.append(h('p', { class: 'rule-note' }, rule ? MULTI_FLAVOR_RULES[rule]
         : 'Esta pizzaria ainda não definiu a regra de preço para mais de um sabor; por enquanto escolha só 1 sabor.'));
     }
-    for (const f of product.flavors) {
+    for (const f of flavors) {
       const fp = size ? catalog.flavorPrice(f.id, size.id) : null;
       if (size && !fp) continue;
       const checked = sel.flavorIds.includes(f.id);
       const full = sel.flavorIds.length >= max;
-      const disabled = !size || f.price_review || (!checked && full);
+      const review = f.price_review && !fp?.weekly;
+      const disabled = !size || review || (!checked && full);
       const input = h('input', { type: 'checkbox', value: f.id, checked, disabled });
       input.addEventListener('change', () => {
         if (input.checked) {
@@ -163,13 +178,13 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
         } else sel.flavorIds = sel.flavorIds.filter((id) => id !== f.id);
         renderGroups(); update();
       });
-      if (max === 1 && size && !f.price_review) input.disabled = false;
+      if (max === 1 && size && !review) input.disabled = false;
       const order = sel.flavorIds.indexOf(f.id);
       group.append(h('label', { class: `opt${input.disabled ? ' disabled' : ''}` }, input,
         h('span', { class: 'opt-text' },
           h('span', { class: 'opt-name' }, f.name, order >= 0 && max > 1 ? ' ' : null, order >= 0 && max > 1 ? h('span', { class: 'opt-order', 'aria-label': `sabor ${order + 1}` }, `${order + 1}`) : null),
           f.description ? h('span', { class: 'opt-sub' }, f.description) : null),
-        f.price_review ? reviewTag() : fp ? priceTag(fp.effectiveCents, fp.promoCents !== null ? fp.priceCents : null) : null));
+        review ? reviewTag() : fp ? priceTag(fp.effectiveCents, fp.promoCents !== null ? fp.priceCents : null) : null));
     }
     return group;
   }
@@ -246,6 +261,7 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
       return;
     }
     onConfirm?.({ ...sel, notes: notes.value });
+    if (!editing) track('add_to_cart', { value: centsToReais(result.lineCents), items: [gaItem(catalog, sel, result.lineCents)] });
     dialog.close();
   }
 
@@ -256,5 +272,6 @@ export function openProductModal({ catalog, productId, categoryName, initial, co
   update();
   dialog.showModal();
   body.scrollTop = 0;
+  if (!editing) track('view_item', { value: centsToReais(product.fromCents), items: [gaItem(catalog, { productId })] });
   return dialog;
 }

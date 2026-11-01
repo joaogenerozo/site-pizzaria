@@ -30,7 +30,7 @@ export function isValidWhatsappNumber(n) {
  *   customer: { name, phone }, mode: 'delivery'|'pickup',
  *   address: { street, number, complement, district, reference } | null,
  *   payment: { name, changeFor: cents|null }, notes,
- *   items: [{ quantity, name, size, flavors[], crust, extras[], notes, unitCents, lineCents }],
+ *   items: [{ quantity, name, size, flavors[], crust, extras[], notes, unitCents, lineCents, weeklyPromo }],
  *   subtotalCents, discountCents, deliveryFeeCents, deliveryFeePending, totalCents, storeName,
  * }
  * deliveryFeePending: a taxa de entrega será combinada com a pizzaria (fora do total).
@@ -53,7 +53,7 @@ export function buildOrderMessage(order) {
     if (it.size) L.push(`Borda: ${it.crust ? cleanText(it.crust, 60) : 'Sem borda'}`);
     if (it.extras?.length) L.push(`Adicionais: ${it.extras.map((e) => cleanText(e, 60)).join(', ')}`);
     if (it.notes) L.push(`Observações: ${cleanText(it.notes, 140)}`);
-    L.push(`Valor do item: ${formatCents(it.lineCents)}${it.quantity > 1 ? ` (${formatCents(it.unitCents)} cada)` : ''}`);
+    L.push(`Valor do item: ${formatCents(it.lineCents)}${it.quantity > 1 ? ` (${formatCents(it.unitCents)} cada)` : ''}${it.weeklyPromo ? ' (promoção do dia)' : ''}`);
     L.push('');
   }
   L.push(`Subtotal: ${formatCents(order.subtotalCents)}`);

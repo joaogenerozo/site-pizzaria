@@ -5,7 +5,7 @@ import { createCart, sanitizeItem } from '../../src/lib/cart.js';
 import { buildOrderMessage, whatsappLink, normalizeBrPhone, cleanText } from '../../src/lib/whatsapp.js';
 import { buildCatalog } from '../../src/lib/catalog.js';
 import { priceItem } from '../../src/lib/pricing.js';
-import { productImageAlt } from '../../src/lib/text.js';
+import { productImageAlt, slugify, matchImageFiles } from '../../src/lib/text.js';
 
 const id = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
@@ -225,5 +225,73 @@ describe('texto alternativo das fotos', () => {
     expect(productImageAlt('Pizza doce', 'Pizza')).toBe('Pizza doce');
     expect(productImageAlt('Pizza meio a meio', 'Pizza meio a meio')).toBe('Pizza meio a meio');
     expect(productImageAlt('Batata frita', undefined)).toBe('Batata frita');
+  });
+});
+
+describe('várias fotos de uma vez: arquivo -> produto pelo nome', () => {
+  const items = ['Bacon', 'Milho Bacon', 'Catupiry com Bacon', 'Frango com Catupiry', 'Brócolis 1', 'Brócolis', 'Pizza 2 sabores (meio a meio)', 'Júlia']
+    .map((name) => ({ name, slug: `pizza-${slugify(name)}` }));
+  const run = (...names) => matchImageFiles(names.map((name) => ({ name })), items);
+  const show = (rows) => rows.map((r) => [r.file.name, r.status, r.item?.name ?? null]);
+
+  it('slug sem acentos nem símbolos', () => {
+    expect(slugify('Brócolis 1')).toBe('brocolis-1');
+    expect(slugify('Pizza 2 sabores (meio a meio)')).toBe('pizza-2-sabores-meio-a-meio');
+  });
+  it('aceita nome com espaços e acentos, com hífens ou com o endereço do produto', () => {
+    expect(show(run('Frango com Catupiry.JPG', 'brocolis-1.webp', 'julia.png', 'pizza-bacon.avif'))).toEqual([
+      ['Frango com Catupiry.JPG', 'exact', 'Frango com Catupiry'], ['brocolis-1.webp', 'exact', 'Brócolis 1'],
+      ['julia.png', 'exact', 'Júlia'], ['pizza-bacon.avif', 'exact', 'Bacon']]);
+  });
+  it('nome exato vence o parcial (bacon não vira Milho Bacon)', () => {
+    expect(show(run('bacon.webp', 'brocolis.webp'))).toEqual([['bacon.webp', 'exact', 'Bacon'], ['brocolis.webp', 'exact', 'Brócolis']]);
+  });
+  it('parecido com um único produto vem marcado para conferir', () => {
+    expect(show(run('meio-a-meio.webp'))).toEqual([['meio-a-meio.webp', 'partial', 'Pizza 2 sabores (meio a meio)']]);
+  });
+  it('mais de um produto possível: não escolhe sozinho e lista as opções', () => {
+    const [r] = run('catupiry.webp');
+    expect(r.status).toBe('ambiguous');
+    expect(r.item).toBeNull();
+    expect(r.candidates.map((c) => c.name)).toEqual(['Catupiry com Bacon', 'Frango com Catupiry']);
+  });
+  it('dois arquivos para o mesmo produto: nenhum é escolhido sozinho', () => {
+    const r = run('Bacon.jpg', 'bacon.webp');
+    expect(show(r)).toEqual([['Bacon.jpg', 'ambiguous', null], ['bacon.webp', 'ambiguous', null]]);
+    expect(r[0].duplicate).toBe(true);
+  });
+  it('sem produto parecido fica sem associação', () => {
+    expect(show(run('calabresa.jpg', 'IMG_2024.jpg'))).toEqual([['calabresa.jpg', 'none', null], ['IMG_2024.jpg', 'none', null]]);
+  });
+});
+
+describe('texto alternativo sugerido para a foto enviada no painel', () => {
+  it('descreve a pizza pelo sabor, e bebidas pelo nome', async () => {
+    const { suggestImageAlt } = await import('../../src/lib/text.js');
+    expect(suggestImageAlt('Frango com Catupiry', { kind: 'pizza', groupType: 'pizzas_salgadas' })).toBe('Pizza de Frango com Catupiry');
+    expect(suggestImageAlt('Banana Nevada', { kind: 'pizza', groupType: 'pizzas_doces' })).toBe('Pizza doce de Banana Nevada');
+    expect(suggestImageAlt('Pizza 2 sabores (meio a meio)', { kind: 'pizza' })).toBe('Pizza 2 sabores (meio a meio)');
+    expect(suggestImageAlt('Coca-Cola 2L', { kind: 'simple', groupType: 'bebidas' })).toBe('Coca-Cola 2L');
+  });
+});
+
+describe('envio de imagens: tipo real pelo conteúdo do arquivo', () => {
+  const bytes = (...parts) => new Uint8Array(parts.flatMap((p) => (typeof p === 'string' ? [...p].map((c) => c.charCodeAt(0)) : p)));
+  it('reconhece JPG, PNG, WebP e AVIF pela assinatura', async () => {
+    const { sniffImageType } = await import('../../src/admin/images.js');
+    expect(sniffImageType(bytes([0xff, 0xd8, 0xff, 0xe0]))).toBe('image/jpeg');
+    expect(sniffImageType(bytes([0x89], 'PNG', [0x0d, 0x0a, 0x1a, 0x0a]))).toBe('image/png');
+    expect(sniffImageType(bytes('RIFF', [1, 2, 3, 4], 'WEBPVP8 '))).toBe('image/webp');
+    expect(sniffImageType(bytes([0, 0, 0, 28], 'ftypavif', [0, 0, 0, 0], 'avifmif1'))).toBe('image/avif');
+    expect(sniffImageType(bytes([0, 0, 0, 28], 'ftypmif1', [0, 0, 0, 0], 'mif1avif'))).toBe('image/avif');
+  });
+  it('recusa executável, HTML, SVG e HEIC mesmo com extensão de imagem', async () => {
+    const { sniffImageType } = await import('../../src/admin/images.js');
+    expect(sniffImageType(bytes('MZ', [0x90, 0]))).toBeNull(); // .exe
+    expect(sniffImageType(bytes([0x7f], 'ELF'))).toBeNull();
+    expect(sniffImageType(bytes('<html><script>'))).toBeNull();
+    expect(sniffImageType(bytes('<svg xmlns='))).toBeNull();
+    expect(sniffImageType(bytes([0, 0, 0, 24], 'ftypheic', [0, 0, 0, 0], 'mif1heic'))).toBeNull();
+    expect(sniffImageType(bytes([]))).toBeNull();
   });
 });

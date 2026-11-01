@@ -1,4 +1,5 @@
 import { toCents } from './money.js';
+import { nowInZone } from './hours.js';
 
 // Transforma as linhas das tabelas num catálogo navegável.
 // Visitantes já recebem só itens ativos (RLS), mas filtramos de novo aqui
@@ -11,11 +12,22 @@ export function buildCatalog(raw) {
   const crusts = new Map(raw.crusts.filter((c) => c.active).map((c) => [c.id, c]));
   const extras = new Map(raw.extras.filter((e) => e.active).map((e) => [e.id, { ...e, priceCents: toCents(e.price) }]));
 
-  const flavorPrice = new Map(); // `${flavor}|${size}` -> { priceCents, promoCents, effectiveCents }
+  // Promoção da semana: vale no dia de hoje no fuso da loja (o banco faz a mesma conta)
+  const today = Number.isInteger(raw.today) ? raw.today : nowInZone(raw.settings?.timezone).weekday;
+  const weeklyRows = (raw.weeklyPromos || []).filter((w) => w.active && flavors.has(w.flavor_id) && sizes.has(w.size_id));
+  const weeklyToday = new Map(weeklyRows.filter((w) => w.weekday === today)
+    .map((w) => [`${w.flavor_id}|${w.size_id}`, toCents(w.price)]));
+
+  const flavorPrice = new Map(); // `${flavor}|${size}` -> { priceCents, promoCents, effectiveCents, weekly }
   for (const fp of raw.flavorPrices) {
+    const key = `${fp.flavor_id}|${fp.size_id}`;
     const priceCents = toCents(fp.price);
-    const promoCents = toCents(fp.promo_price);
-    flavorPrice.set(`${fp.flavor_id}|${fp.size_id}`, { priceCents, promoCents, effectiveCents: promoCents ?? priceCents });
+    let promoCents = toCents(fp.promo_price);
+    const weeklyCents = weeklyToday.get(key) ?? null;
+    // Como no banco: só vale se for menor que o preço do sabor
+    const weekly = weeklyCents !== null && weeklyCents < (promoCents ?? priceCents);
+    if (weekly) promoCents = weeklyCents;
+    flavorPrice.set(key, { priceCents, promoCents, effectiveCents: promoCents ?? priceCents, weekly });
   }
   const crustPrice = new Map(raw.crustPrices.map((cp) => [`${cp.crust_id}|${cp.size_id}`, toCents(cp.price)]));
 
@@ -59,8 +71,28 @@ export function buildCatalog(raw) {
     .filter((p) => p.kind === 'simple' || (p.sizes.length && p.flavors.length))
     .sort(bySort);
 
+  // Promoções por dia, para a faixa "Promoção de hoje" e a tabela da semana.
+  // Cada sabor aponta para o card dele (produto de um sabor só), quando existe.
+  const singleProduct = new Map();
+  for (const p of products) {
+    if (p.kind === 'pizza' && p.flavors.length === 1 && !singleProduct.has(p.flavors[0].id)) singleProduct.set(p.flavors[0].id, p);
+  }
+  const weeklyPromos = [];
+  for (const w of [...weeklyRows].sort((a, b) => a.weekday - b.weekday || bySort(a, b))) {
+    const fp = flavorPrice.get(`${w.flavor_id}|${w.size_id}`);
+    if (!fp) continue;
+    weeklyPromos.push({
+      weekday: w.weekday, flavor: flavors.get(w.flavor_id), size: sizes.get(w.size_id),
+      priceCents: toCents(w.price), regularCents: fp.priceCents, product: singleProduct.get(w.flavor_id) || null,
+      today: w.weekday === today && fp.weekly,
+    });
+  }
+
   return {
     settings: raw.settings,
+    today,
+    weeklyPromos,
+    todayPromos: weeklyPromos.filter((w) => w.today),
     hours: raw.hours,
     payments: raw.payments.filter((p) => p.active).sort(bySort),
     zones: raw.zones.filter((z) => z.active).sort(bySort),
@@ -82,9 +114,9 @@ function startingPrice(product, flavorPrice) {
   let min = null;
   for (const s of product.sizes) {
     for (const f of product.flavors) {
-      if (f.price_review) continue;
       const fp = flavorPrice.get(`${f.id}|${s.id}`);
-      if (fp && (min === null || fp.effectiveCents < min)) min = fp.effectiveCents;
+      if (!fp || (f.price_review && !fp.weekly)) continue;
+      if (min === null || fp.effectiveCents < min) min = fp.effectiveCents;
     }
   }
   return min;

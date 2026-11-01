@@ -82,3 +82,72 @@ body.adm { background: #eef2f9; }
   .adm-actions > * { margin: 0 10px 0 0; }
 }
 .tag-review { display: inline-block; background: #fff1c7; color: #6d4c00; font-size: 12px; font-weight: 700; border-radius: 6px; padding: 2px 8px; }
+
+/* aba Imagens: foto de cada produto, envio em massa e biblioteca */
+.adm-photos .adm-card-head { flex-wrap: wrap; }
+.adm-photos .adm-card-head > div { flex: 1 1 280px; }
+.adm-photos .adm-card-head .btn { display: inline-flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: .02em; }
+.adm-photos .adm-card-head .btn svg { width: 18px; height: 18px; }
+.adm-segs { display: inline-flex; gap: 4px; padding: 4px; background: var(--blue-soft); border-radius: 999px; margin-top: 4px; max-width: 100%; overflow-x: auto; }
+.adm-seg { border: 0; background: none; padding: 8px 14px; border-radius: 999px; font: 600 14px/1.2 var(--font-body); color: var(--ink-2); cursor: pointer; white-space: nowrap; }
+.adm-seg[aria-pressed='true'] { background: var(--navy); color: #fff; }
+.adm-photo-tools { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 14px 0 4px; }
+.adm-photo-tools .input[type='search'] { flex: 1 1 220px; max-width: 360px; }
+.adm-photo-tools select.input { flex: 0 1 200px; }
+.adm-photo-checks { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.adm-photo-group h3 { font: 800 17px/1.2 var(--font-display); margin: 22px 0 10px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.adm-group-tag { font: 600 12px/1 var(--font-body); color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+.adm-photo-grid { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.adm-photo { display: grid; gap: 6px; align-content: start; padding: 8px; border: 1px solid var(--line); border-radius: 14px; background: #fff; min-width: 0; }
+.adm-photo.off { opacity: .7; }
+.adm-photo.busy { opacity: .55; pointer-events: none; }
+.adm-photo-view { border: 0; padding: 0; background: none; cursor: zoom-in; border-radius: 10px; }
+.adm-photo-img { display: block; width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; border-radius: 10px; background: var(--blue-soft); }
+.adm-photo-img.empty { display: grid; place-items: center; color: var(--ink-3); font-size: 13px; border: 2px dashed var(--line); }
+.adm-photo-name { font-size: 14.5px; line-height: 1.25; overflow-wrap: anywhere; }
+.adm-photo-actions { display: flex; align-items: center; gap: 4px 12px; flex-wrap: wrap; }
+.adm-photo-actions .btn { padding: 7px 12px; font-size: 14px; }
+.adm-photo-actions .link-btn { font-size: 14px; padding: 4px 0; cursor: pointer; }
+.adm-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.adm-tags:empty { display: none; }
+.tag-warn, .tag-muted { display: inline-block; font-size: 12px; font-weight: 700; border-radius: 6px; padding: 2px 8px; }
+.tag-warn { background: #fff1c7; color: #6d4c00; }
+.tag-muted { background: var(--blue-soft); color: var(--ink-2); }
+.adm-alt { display: grid; gap: 4px; }
+.adm-alt-label { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.adm-alt-row { display: flex; gap: 6px; }
+.input.sm { padding: 7px 9px; font-size: 14px; min-width: 0; }
+.adm-alt-row .input { flex: 1; }
+.btn.sm { padding: 6px 10px; font-size: 13px; }
+.adm-dialog.wide { max-width: 880px; }
+.adm-compare { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.adm-compare figure { margin: 0; display: grid; gap: 6px; text-align: center; font-size: 13px; color: var(--ink-2); }
+.adm-compare .adm-photo-img { max-width: 260px; margin: 0 auto; }
+.adm-dialog progress { width: 100%; height: 10px; accent-color: var(--basil); }
+.adm-viewer img#view-img { display: block; max-width: 100%; max-height: 65vh; margin: 0 auto; border-radius: 12px; object-fit: contain; background: var(--blue-soft); }
+.adm-assign-img { max-width: 180px; margin: 0 auto 8px; }
+.adm-pick { margin-top: 12px; max-height: 55vh; overflow: auto; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+.adm-pick-item { width: 100%; display: grid; gap: 4px; padding: 6px; border: 2px solid var(--line); border-radius: 12px; background: #fff; text-align: left; cursor: pointer; font: inherit; }
+.adm-pick-item small { overflow-wrap: anywhere; font-size: 12px; }
+.adm-pick-item.on { border-color: var(--basil); box-shadow: 0 0 0 3px var(--basil-soft); }
+.adm-bulk { list-style: none; margin: 10px 0; padding: 0; display: grid; gap: 8px; max-height: 58vh; overflow: auto; }
+.adm-bulk-row { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 8px; border: 1px solid var(--line); border-radius: 12px; }
+.adm-bulk-row.dup { border-color: var(--brand); background: var(--brand-soft); }
+.adm-bulk-row.done { border-color: var(--basil); background: var(--basil-soft); }
+.adm-bulk-row.error { border-color: var(--brand); }
+.adm-bulk-row.sending { border-color: var(--blue); }
+.adm-bulk-thumb { width: 64px; height: 64px; border-radius: 8px; background: var(--blue-soft); display: grid; place-items: center; overflow: hidden; color: var(--ink-3); }
+.adm-bulk-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.adm-bulk-thumb svg { width: 24px; height: 24px; }
+.adm-bulk-main { display: grid; gap: 4px; min-width: 0; }
+.adm-bulk-name { font-size: 14px; overflow-wrap: anywhere; }
+.adm-match { font-size: 12px; font-weight: 600; }
+.adm-match.ok { color: var(--basil); }
+.adm-match.warn { color: #8a5a00; }
+.adm-match.muted { color: var(--ink-3); }
+.adm-bulk-current { display: flex; gap: 6px; align-items: center; font-size: 12px; color: #8a5a00; }
+.adm-bulk-current:empty { display: none; }
+.adm-bulk-current img { border-radius: 4px; object-fit: cover; }
+.adm-bulk-state { font-size: 12.5px; color: var(--ink-2); }
+.adm-bulk-state:empty { display: none; }
+@media (max-width: 420px) { .adm-photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } .adm-bulk-row { grid-template-columns: 48px minmax(0, 1fr) auto; } .adm-bulk-thumb { width: 48px; height: 48px; } }

@@ -3,7 +3,7 @@ import { icon } from '../lib/icons.js';
 import { supabase } from '../lib/supabase.js';
 import { parseField, displayValue, renderField, friendlyDbError } from './fields.js';
 import { notify } from './ui.js';
-import { BUCKET, shrinkImage, removeUnusedImages } from './images.js';
+import { IMAGE_TYPES, uploadImage, imageErrorMessage, removeUnusedImages } from './images.js';
 
 // URLs de imagem de um registro (image_url, logo_url…); as de fora do bucket são ignoradas depois
 const imageUrls = (row) => Object.entries(row ?? {}).filter(([k, v]) => /_url$/.test(k) && v).map(([, v]) => v);
@@ -142,6 +142,7 @@ export function crudView(cfg) {
       }
       const payload = {};
       for (const f of fields) if (f.type !== 'multi' && !f.virtual) payload[f.key] = v[f.key];
+      cfg.beforeSave?.(payload, row);
       const btn = dialog.querySelector('#adm-save');
       btn.disabled = true;
       const q = row
@@ -188,7 +189,7 @@ export function crudView(cfg) {
 
 // Envio de imagem para o Storage (bucket menu-images). Só admins conseguem (RLS).
 function imageUploader(urlControl, uploaded) {
-  const file = h('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp', class: 'sr-only', id: `up-${Math.random().toString(36).slice(2)}` });
+  const file = h('input', { type: 'file', accept: IMAGE_TYPES.join(','), class: 'sr-only', id: `up-${Math.random().toString(36).slice(2)}` });
   const status = h('small', { class: 'adm-help' });
   const preview = h('img', { class: 'adm-preview', alt: 'Prévia da foto', hidden: !urlControl.control.value });
   if (urlControl.control.value) preview.src = urlControl.control.value;
@@ -200,19 +201,11 @@ function imageUploader(urlControl, uploaded) {
     const f = file.files[0];
     if (!f) return;
     file.value = '';
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) { status.textContent = 'Use JPG, PNG ou WEBP.'; return; }
-    status.textContent = 'Preparando a imagem…';
-    let blob;
-    try { blob = await shrinkImage(f); } catch (e) { status.textContent = e.message; return; }
-    if (blob.size > 2 * 1024 * 1024) { status.textContent = 'Mesmo reduzida, a imagem passou de 2 MB. Tente outra foto.'; return; }
-    status.textContent = 'Enviando…';
-    const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[blob.type];
-    const path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;
-    const { error } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: blob.type, upsert: false });
-    if (error) { status.textContent = friendlyDbError(error); return; }
-    const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-    uploaded.push(data.publicUrl);
-    urlControl.control.value = data.publicUrl;
+    status.textContent = 'Enviando a imagem…';
+    let url;
+    try { url = await uploadImage(f); } catch (e) { status.textContent = imageErrorMessage(e); return; }
+    uploaded.push(url);
+    urlControl.control.value = url;
     urlControl.control.dispatchEvent(new Event('change'));
     status.textContent = 'Imagem enviada.';
   });

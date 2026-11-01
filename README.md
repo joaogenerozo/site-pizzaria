@@ -49,12 +49,13 @@ o conteúdo de cada arquivo (copiar, colar, **Run**):
 2. `supabase/storage.sql`: bucket público `menu-images` (leitura pública,
    envio só por administradores).
 3. **Cardápio da Domingo's Pizzas:** `supabase/seed_domingos.sql` carrega os
-   51 sabores, tamanhos P/M/G, bordas, adicionais, horário e WhatsApp do
+   52 sabores, tamanhos P/M/G, bordas, adicionais, horário e WhatsApp do
    cardápio impresso (veja [docs/CARDAPIO-DOMINGOS.md](docs/CARDAPIO-DOMINGOS.md)).
    Ele **substitui** o cardápio que estiver no banco.
    Se você já tinha rodado uma versão antiga do `schema.sql`, rode antes
-   `supabase/migrations/001_preco_em_confirmacao.sql` e
-   `supabase/migrations/002_cardapio_numa_consulta.sql`.
+   `supabase/migrations/001_preco_em_confirmacao.sql`,
+   `supabase/migrations/002_cardapio_numa_consulta.sql` e
+   `supabase/migrations/003_promocoes_semanais.sql`.
 
    **Alternativa:** `supabase/seed_demo.sql` cria dados de demonstração
    (com aviso de "modo demonstração" no site). Se preferir começar vazio, não rode
@@ -98,8 +99,19 @@ acesso ao painel do Supabase consegue.
 3. Desmarque **Modo demonstração** quando os dados forem reais.
 4. Cadastre categorias, produtos, tamanhos, sabores e preços por tamanho,
    bordas, adicionais, bairros/taxas, formas de pagamento e horários.
-   Fotos enviadas pelo painel são reduzidas automaticamente (até 1600 px) antes
-   do envio, e a foto antiga é apagada do Storage quando você troca ou exclui.
+   A aba **Imagens** cuida das fotos dos produtos:
+   - **Trocar imagem**: escolha a foto no celular ou no computador, veja a
+     prévia ao lado da atual, ajuste o texto alternativo e só então salve.
+   - **Adicionar várias imagens**: cada arquivo é ligado ao produto de mesmo
+     nome (ex.: `frango-com-catupiry.webp`). Na dúvida (dois produtos
+     parecidos ou dois arquivos para o mesmo produto) o painel pede que você
+     escolha. Mostra prévia, progresso, resultado e permite cancelar.
+   - **Biblioteca de Imagens**: tudo o que foi enviado, separado por tipo
+     (pizzas salgadas, doces, bebidas, combos, adicionais, outros). Imagens
+     trocadas não são apagadas: ficam como "sem produto" até você excluir.
+   Toda foto é conferida pelo conteúdo (só JPG, PNG, WebP e AVIF de verdade),
+   redesenhada (o que descarta metadados como GPS), reduzida para até
+   1200 px em WebP e ganha uma miniatura de 400 px para o cardápio.
    Para trocar a demonstração pelos dados reais, rode o bloco
    "LIMPAR DEMONSTRAÇÃO" no fim de `supabase/seed_demo.sql`.
 
@@ -120,7 +132,7 @@ Também há um ambiente 100% local que imita o Supabase (PostgreSQL + PostgREST
 ```bash
 bash supabase/tests/run.sh                       # 85 testes de RLS e preço no banco
 LOCAL_ANON_KEY=$(node dev/make-jwt.mjs anon) \
-  npx playwright test                            # 68 testes no navegador (celular e desktop)
+  npx playwright test                            # 70 testes no navegador (celular e desktop)
 SEED=domingos bash dev/reset-db.sh               # abre o site local com o cardápio real
 ```
 
@@ -207,6 +219,28 @@ no console do navegador (F12).
   `https://seudominio/sitemap.xml` em **Sitemaps** e peça a indexação da
   página inicial. Crie também o **Perfil da Empresa no Google** com o mesmo
   endereço e telefone e o link do site.
+
+### Google Analytics 4 e Search Console (opcionais)
+
+- **Search Console:** escolha o método de verificação **Tag HTML**, copie só o
+  código de dentro de `content="..."` para `VITE_GSC_VERIFICATION` no
+  `.env.production.local`, gere o build (passo 6) e publique. Depois clique em
+  **Verificar** no Search Console.
+- **Google Analytics 4:** crie a propriedade e o fluxo da Web, copie o **ID de
+  medição** (`G-XXXXXXXXXX`) para `VITE_GA4_ID`, gere o build e publique.
+  - Sem `VITE_GA4_ID`, nenhum script do Google é baixado e o `.htaccess` sai
+    igual. Com ele, o build libera no `.htaccess` (CSP) só os endereços do
+    Google Analytics.
+  - O visitante vê um aviso de cookies (LGPD). Nada é medido antes do
+    **Aceitar**; o link **Preferências de cookies** no rodapé permite mudar a
+    escolha.
+  - Eventos enviados: `view_item` (abriu um produto), `add_to_cart`,
+    `begin_checkout` (tocou em Continuar no carrinho) e `generate_lead` (tocou
+    no WhatsApp; `lead_source` = `pedido` ou `contato`). No GA4, marque
+    `generate_lead` como **evento-chave**.
+  - **Não existe evento `purchase`:** o pedido termina no WhatsApp e só vale
+    quando a pizzaria confirma, então tocar no WhatsApp é um contato, não uma
+    venda. Os dados do pedido (nome, telefone, endereço) nunca vão para o GA4.
 
 ## 10. Manter o Supabase ativo (plano grátis)
 

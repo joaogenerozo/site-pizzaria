@@ -6,7 +6,7 @@
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('menu-images', 'menu-images', true, 2097152,
-        array['image/jpeg', 'image/png', 'image/webp'])
+        array['image/jpeg', 'image/png', 'image/webp', 'image/avif'])
 on conflict (id) do nothing;
 
 create policy menu_images_admin_insert on storage.objects

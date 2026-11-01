@@ -37,7 +37,7 @@ describe('carregar o cardápio', () => {
     });
     vi.stubGlobal('fetch', fetch);
     const d = await loadMenuData();
-    expect(fetch).toHaveBeenCalledTimes(16);
+    expect(fetch).toHaveBeenCalledTimes(17);
     expect(d.settings.name).toBe('Loja');
     expect(d.crustPrices).toEqual([{ id: 'crust_prices-1' }]);
   });
@@ -49,7 +49,7 @@ describe('carregar o cardápio', () => {
       : json(200, tables[new URL(url).pathname.split('/').pop()])));
     vi.stubGlobal('fetch', fetch);
     await expect(loadMenuData()).resolves.toMatchObject({ settings: { name: 'Loja' } });
-    expect(fetch).toHaveBeenCalledTimes(16);
+    expect(fetch).toHaveBeenCalledTimes(17);
   });
 
   it('sem internet, mostra o erro de carregamento', async () => {

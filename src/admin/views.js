@@ -40,12 +40,19 @@ export async function productsView() {
       { label: 'Preço', render: (r) => (r.kind === 'pizza' ? 'pelos sabores' : r.promo_price ? h('span', {}, h('s', {}, formatPrice(r.price)), ' ', formatPrice(r.promo_price)) : formatPrice(r.price)) },
       { label: 'Revisão', render: reviewCol },
     ],
+    // Trocou a imagem por aqui: a miniatura e o texto alternativo eram da foto antiga.
+    // (Só existem depois da atualização 006; sem ela a linha não tem essas colunas.)
+    beforeSave: (payload, row) => {
+      if (!row || payload.image_url === row.image_url) return;
+      if ('image_thumb_url' in row) payload.image_thumb_url = null;
+      if ('image_alt' in row) payload.image_alt = null;
+    },
     fields: async () => [
       { key: 'name', label: 'Nome', required: true, maxlength: 120 },
       { key: 'category_id', label: 'Categoria', type: 'select', required: true, options: cats },
       { key: 'kind', label: 'Tipo', type: 'select', required: true, options: [{ value: 'simple', label: 'Simples (preço fixo)' }, { value: 'pizza', label: 'Pizza (tamanho + sabores)' }] },
       { key: 'description', label: 'Descrição', type: 'textarea', maxlength: 1000 },
-      { key: 'image_url', label: 'Imagem (URL https)', type: 'image', help: 'Envie uma foto própria ou cole o endereço https de uma imagem que você tem direito de usar.' },
+      { key: 'image_url', label: 'Imagem (URL https)', type: 'image', help: 'Envie uma foto própria ou cole o endereço https de uma imagem que você tem direito de usar. Para miniatura e texto alternativo, use a aba Imagens.' },
       { key: 'price', label: 'Preço (R$)', type: 'money', show: isSimple, placeholder: '0,00' },
       { key: 'promo_price', label: 'Preço promocional (R$)', type: 'money', show: isSimple, help: 'Deixe vazio se não houver promoção. Precisa ser menor que o preço.' },
       { key: 'qty_promo_min', label: 'Promoção por quantidade: a partir de quantas unidades', type: 'int', min: 2, max: 99, show: isSimple },
@@ -54,7 +61,7 @@ export async function productsView() {
       { key: 'size_ids', label: 'Tamanhos oferecidos', type: 'multi', options: await options('pizza_sizes'), show: isPizza },
       { key: 'flavor_ids', label: 'Sabores permitidos', type: 'multi', options: await options('pizza_flavors'), show: isPizza },
       { key: 'extra_ids', label: 'Adicionais permitidos', type: 'multi', options: await options('extras') },
-      { key: 'badge', label: 'Selo (opcional)', maxlength: 30, placeholder: 'Promoção, Novo, Mais pedido…' },
+      { key: 'badge', label: 'Selo (opcional)', maxlength: 30, placeholder: 'Promoção, Novo, Mais pedido…', help: 'Com o selo "Mais pedido" o produto também aparece no destaque "Mais pedidos", no topo do cardápio (até 6).' },
       { key: 'available', label: 'Disponível no cardápio', type: 'bool' },
       sortField,
     ],
@@ -213,6 +220,35 @@ function priceMatrix({ title, intro, rows, sizes, existing, table, rowKey, withP
 }
 
 // ---------------------------------------------------------------- Adicionais
+// ---------------------------------------------------------------- Promoções da semana
+export async function weeklyPromosView() {
+  const flavors = await options('pizza_flavors');
+  const sizes = await options('pizza_sizes');
+  const flavorName = new Map(flavors.map((o) => [o.value, o.label]));
+  const sizeName = new Map(sizes.map((o) => [o.value, o.label]));
+  return crudView({
+    table: 'weekly_promotions', title: 'Promoções da semana', singular: 'promoção',
+    intro: 'Em cada dia da semana, o sabor escolhido sai pelo preço da promoção naquele tamanho. Vale só no dia (horário de Brasília) e o banco aplica o preço sozinho. Sabor com "preço em confirmação" pode ser pedido no dia e tamanho da promoção.',
+    order: [['weekday'], ['sort_order'], ['created_at']], activeKey: 'active',
+    describe: (r) => `${WEEKDAYS[r.weekday]}: ${flavorName.get(r.flavor_id) ?? 'sabor'} ${sizeName.get(r.size_id) ?? ''}`,
+    defaults: () => ({ weekday: 1, size_id: sizes[sizes.length - 1]?.value, price: '50.00', active: true, sort_order: 0 }),
+    columns: [
+      { label: 'Dia', render: (r) => WEEKDAYS[r.weekday] },
+      { label: 'Sabor', render: (r) => h('strong', {}, flavorName.get(r.flavor_id) ?? '—') },
+      { label: 'Tamanho', render: (r) => sizeName.get(r.size_id) ?? '—' },
+      { label: 'Preço', render: (r) => formatPrice(r.price) },
+    ],
+    fields: [
+      { key: 'weekday', label: 'Dia da semana', type: 'weekday', required: true },
+      { key: 'flavor_id', label: 'Sabor', type: 'select', required: true, options: flavors },
+      { key: 'size_id', label: 'Tamanho', type: 'select', required: true, options: sizes },
+      { key: 'price', label: 'Preço da promoção (R$)', type: 'money', required: true, help: 'Se for maior que o preço normal do sabor, vale o preço normal.' },
+      { key: 'active', label: 'Ativa', type: 'bool' },
+      { ...sortField, help: 'Ordem dentro do dia. Menor aparece primeiro.' },
+    ],
+  });
+}
+
 export function extrasView() {
   return crudView({
     table: 'extras', title: 'Adicionais', singular: 'adicional', orderKey: 'sort_order', activeKey: 'active',
