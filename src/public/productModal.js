@@ -6,6 +6,7 @@ import { priceItem, MULTI_FLAVOR_RULES } from '../lib/pricing.js';
 import { MAX_NOTES, MAX_QTY } from '../lib/cart.js';
 import { productImageAlt } from '../lib/text.js';
 import { track, gaItem, centsToReais } from '../lib/analytics.js';
+import { bump, reducedMotion, softClose } from '../lib/motion.js';
 
 // Abre a janela de personalização de um produto.
 // initial: seleção existente (edição de item do carrinho). onConfirm(selection).
@@ -37,7 +38,10 @@ export function openProductModal({ catalog, productId, categoryName, initial, pr
   const minus = h('button', { type: 'button', 'aria-label': 'Diminuir quantidade', onclick: () => setQty(sel.quantity - 1) }, icon('minus'));
   const plus = h('button', { type: 'button', 'aria-label': 'Aumentar quantidade', onclick: () => setQty(sel.quantity + 1) }, icon('plus'));
   const totalOut = h('span');
-  const confirmBtn = h('button', { type: 'button', class: 'btn', onclick: confirm }, h('span', {}, confirmLabel), totalOut);
+  const confirmBtn = h('button', { type: 'button', class: 'btn btn-confirm', onclick: confirm }, h('span', {}, confirmLabel), totalOut,
+    // check de confirmação: aparece por cima do botão quando o item é aceito
+    h('span', { class: 'btn-done', 'aria-hidden': 'true' }, icon('check')));
+  let committing = false; // impede adicionar duas vezes com toques repetidos
 
   const image = product.image_url
     ? h('img', { class: 'sheet-hero', src: product.image_url, alt: product.image_alt || productImageAlt(product.name, categoryName), decoding: 'async', width: 1200, height: 675 })
@@ -77,8 +81,11 @@ export function openProductModal({ catalog, productId, categoryName, initial, pr
   );
 
   function setQty(q) {
-    sel.quantity = Math.max(1, Math.min(MAX_QTY, q));
+    const next = Math.max(1, Math.min(MAX_QTY, q));
+    if (next === sel.quantity) return;
+    sel.quantity = next;
     update();
+    bump(qtyOut);
   }
 
   function renderGroups() {
@@ -231,7 +238,9 @@ export function openProductModal({ catalog, productId, categoryName, initial, pr
     qtyOut.textContent = String(sel.quantity);
     minus.disabled = sel.quantity <= 1;
     plus.disabled = sel.quantity >= MAX_QTY;
-    totalOut.textContent = formatCents(Number.isFinite(result.lineCents) ? result.lineCents : 0);
+    const total = formatCents(Number.isFinite(result.lineCents) ? result.lineCents : 0);
+    if (totalOut.textContent && totalOut.textContent !== total) bump(totalOut);
+    totalOut.textContent = total;
     confirmBtn.setAttribute('aria-disabled', String(!result.ok));
     confirmBtn.classList.toggle('is-invalid', !result.ok);
     clear(errorsBox);
@@ -251,20 +260,36 @@ export function openProductModal({ catalog, productId, categoryName, initial, pr
     return result;
   }
 
+  let pending = null; // seleção aceita, entregue à sacola uma única vez
+  function commit() {
+    if (!pending) return;
+    const { selection, lineCents } = pending;
+    pending = null;
+    onConfirm?.(selection);
+    if (!editing) track('add_to_cart', { value: centsToReais(lineCents), items: [gaItem(catalog, selection, lineCents)] });
+  }
+
   function confirm() {
-    if (blocked) return;
+    if (blocked || committing) return;
     const result = update();
     if (!result.ok) {
       showErrors = true;
       update();
+      bump(confirmBtn, 'is-shake');
       errorsBox.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       return;
     }
-    onConfirm?.({ ...sel, notes: notes.value });
-    if (!editing) track('add_to_cart', { value: centsToReais(result.lineCents), items: [gaItem(catalog, sel, result.lineCents)] });
-    dialog.close();
+    committing = true;
+    pending = { selection: { ...sel, notes: notes.value }, lineCents: result.lineCents };
+    // Botão mostra o check por um instante; depois a janela fecha e o item entra na sacola
+    confirmBtn.classList.add('is-done');
+    confirmBtn.setAttribute('aria-disabled', 'true');
+    setTimeout(() => { commit(); dialog.close(); }, reducedMotion() ? 0 : 420);
   }
 
+  softClose(dialog);
+  // Fechou (Esc ou fora) enquanto o check aparecia: o item aceito entra do mesmo jeito
+  dialog.addEventListener('close', commit);
   dialog.addEventListener('close', () => dialog.remove());
   dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); }); // clique fora
   document.body.append(dialog);

@@ -57,3 +57,19 @@
 - Fonte: PDF "CARDÁPIO DE ENTREGA - 08-09-26" transcrito para `data/cardapio_domingos_pizzas.json` (51 sabores, 3 bordas, 6 adicionais).
 - `supabase/seed_domingos.sql` gerado por `scripts/gerar-seed-domingos.mjs`; novo campo "preço em confirmação" e taxa de entrega "a combinar" (`supabase/migrations/001_preco_em_confirmacao.sql`).
 - Detalhes, pendências e testes: [CARDAPIO-DOMINGOS.md](CARDAPIO-DOMINGOS.md).
+
+## Experiência de compra 2.1 — animações e retornos visuais (06/11/2026)
+Só a parte visual da compra mudou. Montagem da mensagem do WhatsApp, preços, cálculo no banco,
+itens guardados na sacola e painel /admin/ continuam iguais. Nenhuma biblioteca nova (CSS e JS próprios,
+`src/lib/motion.js`); tudo respeita "reduzir movimento" do aparelho.
+- **Adicionar:** botão afunda ao toque, mostra um check verde, a janela fecha suave, o ícone da sacola pulsa,
+  o contador pula e aparece a notificação "Produto adicionado à sacola!" (some sozinha). Toque duplo entra uma vez só.
+- **Sacola:** abre pela lateral no computador (no celular continua subindo de baixo), foto/ilustração de cada item,
+  quantidade e valores animam ao mudar, item sai deslizando ao remover, "Continuar comprando" e "Finalizar pedido" em destaque.
+- **Cards e opções:** elevação e sombra só com mouse; no celular, retorno de toque. Opção escolhida (tamanho, sabor, borda, pagamento) fica destacada.
+- **Finalização:** depois do cálculo do banco, check animado com partículas discretas, "Pedido preparado com sucesso!",
+  "Seu pedido está quase pronto!", resumo com quantidades, valor unitário e total, e o botão "Enviar pedido pelo WhatsApp" em destaque.
+  O site nunca diz "pedido confirmado": quem confirma é a pizzaria pelo WhatsApp.
+- **Botões:** carregando ("Calculando…" com indicador), erro (botão balança e mostra o motivo), sem envio duplicado.
+- **Correção:** a palavra "null" aparecia embaixo do subtotal da sacola.
+- Testes: `tests/e2e/experiencia.spec.js` (13 novos); total 97 no navegador e 43 de unidade.

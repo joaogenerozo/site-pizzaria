@@ -31,7 +31,7 @@
 html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
 body {
   margin: 0;
@@ -216,7 +216,8 @@ main { padding-bottom: 120px; }
   transition: transform .18s ease, box-shadow .18s ease, border-color .18s;
   animation: rise .35s ease both;
 }
-.card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); border-color: #c9d6ee; }
+/* elevação só com mouse: no celular o "hover" ficaria grudado depois do toque */
+@media (hover: hover) { .card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); border-color: #c9d6ee; } }
 .card-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .card-name { margin: 0; font-weight: 700; font-size: 16px; line-height: 1.3; }
 /* O botão fica no título, mas a área de toque cobre o card inteiro */
@@ -248,7 +249,7 @@ main { padding-bottom: 120px; }
   font-size: 13px; font-weight: 700;
 }
 .card-add svg { width: 15px; height: 15px; }
-.card:hover .card-add { filter: brightness(1.08); }
+@media (hover: hover) { .card:hover .card-add { filter: brightness(1.08); } }
 .thumb.placeholder svg { width: 58%; height: 58%; }
 .price { font-weight: 700; color: var(--ink); }
 .price-from { font-size: 12px; color: var(--ink-3); font-weight: 500; margin-right: 2px; }
@@ -537,7 +538,7 @@ dialog.sheet, .consent {
 .section-title { color: #fff; display: flex; align-items: center; gap: 10px; }
 .section-title::before { content: ''; width: 6px; height: 1em; border-radius: 3px; background: var(--brand); flex: none; }
 .card { border-color: rgba(255, 255, 255, .12); box-shadow: 0 2px 10px rgba(0, 0, 0, .18); }
-.card:hover { border-color: rgba(255, 255, 255, .45); box-shadow: 0 10px 30px rgba(0, 0, 0, .3); }
+@media (hover: hover) { .card:hover { border-color: rgba(255, 255, 255, .45); box-shadow: 0 12px 32px rgba(0, 0, 0, .32); } }
 .price-promo { background: var(--brand); color: #fff; padding: 1px 8px; border-radius: 6px; }
 .badge { background: #fff; color: var(--navy); }
 body:not(.adm) .btn-ghost:hover { background: rgba(255, 255, 255, .12); }
@@ -609,3 +610,191 @@ button.promo-item:hover, .promo-half:hover { box-shadow: 0 0 0 3px rgba(255, 255
 .consent-actions .btn { min-width: 110px; }
 .consent .btn-ghost { color: var(--ink); }
 .footer .link-btn { color: inherit; }
+
+/* ==========================================================================
+   Microinterações da compra (cardápio público; o painel /admin/ não muda)
+   Só transform/opacity/sombra: nada empurra o layout (sem CLS).
+   prefers-reduced-motion (no topo deste arquivo) zera as durações.
+   ========================================================================== */
+@keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.22); } 100% { transform: scale(1); } }
+@keyframes pop-in { from { transform: scale(.4); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes shake { 0%, 100% { translate: 0 0; } 20%, 60% { translate: -5px 0; } 40%, 80% { translate: 5px 0; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fade-out { to { opacity: 0; } }
+
+body:not(.adm) .is-bump { animation: bump .34s cubic-bezier(.3, 1.6, .5, 1); }
+body:not(.adm) .is-shake { animation: shake .38s ease; }
+
+/* ---------- cards ---------- */
+body:not(.adm) .card { -webkit-tap-highlight-color: transparent; transition: transform .22s cubic-bezier(.2, .8, .2, 1), box-shadow .22s ease, border-color .22s ease; }
+body:not(.adm) .card:active { transform: scale(.985); transition-duration: .08s; }
+body:not(.adm) .card-add { transition: transform .15s ease, filter .2s ease, box-shadow .2s ease; }
+body:not(.adm) .card:active .card-add { transform: scale(.93); }
+@media (hover: hover) { body:not(.adm) .card:hover .card-add { box-shadow: 0 4px 12px rgba(200, 16, 46, .45); } }
+/* contorno verde rápido no card do produto que acabou de entrar na sacola */
+body:not(.adm) .card.is-added::before {
+  content: ''; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 6px rgba(31, 143, 78, .7);
+  animation: added-ring 1s ease forwards;
+}
+@keyframes added-ring { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: 0; } }
+button.promo-item, .promo-half { transition: transform .12s ease, box-shadow .2s ease; }
+button.promo-item:active, .promo-half:active { transform: scale(.98); }
+
+/* ---------- botões ---------- */
+body:not(.adm) .btn { position: relative; -webkit-tap-highlight-color: transparent; transition: background-color .2s ease, box-shadow .2s ease, transform .12s ease, filter .2s ease; }
+body:not(.adm) .btn:active:not(:disabled):not([aria-disabled='true']) { transform: scale(.97); }
+.btn-checkout { box-shadow: 0 6px 18px rgba(200, 16, 46, .35); }
+.btn-checkout svg { transition: transform .2s ease; }
+@media (hover: hover) { .btn-checkout:hover svg { transform: translateX(3px); } }
+.btn.is-loading:disabled { background: var(--brand-ink); cursor: progress; }
+.spinner { width: 16px; height: 16px; flex: none; border: 2px solid rgba(255, 255, 255, .45); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+/* Botão "Adicionar" da janela do produto: check de confirmação por cima */
+.btn-confirm { overflow: hidden; }
+.btn-confirm > span:not(.btn-done) { transition: opacity .15s ease; }
+.btn-done {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  background: var(--basil); color: #fff; border-radius: inherit;
+  opacity: 0; pointer-events: none; transition: opacity .15s ease;
+}
+.btn-done svg { width: 26px; height: 26px; stroke-width: 3; stroke-dasharray: 22; stroke-dashoffset: 22; }
+.btn-confirm.is-done > span:not(.btn-done) { opacity: 0; }
+.btn-confirm.is-done .btn-done { opacity: 1; }
+.btn-confirm.is-done .btn-done svg { animation: draw .32s .05s ease forwards; }
+body:not(.adm) .qty button { transition: background-color .15s ease, transform .1s ease; -webkit-tap-highlight-color: transparent; }
+body:not(.adm) .qty button:active:not(:disabled) { transform: scale(.86); background: var(--brand-soft); }
+body:not(.adm) .link-btn { transition: color .15s ease, opacity .15s ease; }
+body:not(.adm) .link-btn:active { opacity: .55; }
+body:not(.adm) .info-btn { transition: transform .12s ease, box-shadow .2s ease; }
+body:not(.adm) .info-btn:active { transform: scale(.97); }
+.segmented span { transition: background-color .18s ease, border-color .18s ease, color .18s ease; }
+
+/* ---------- opções da pizza e do checkout: escolha destacada ---------- */
+body:not(.adm) dialog.sheet .opt { border-radius: 10px; transition: background-color .18s ease, box-shadow .18s ease; -webkit-tap-highlight-color: transparent; }
+body:not(.adm) dialog.sheet .opt:has(input:checked) { background: #f1f5fd; box-shadow: inset 3px 0 0 var(--brand); }
+body:not(.adm) dialog.sheet .opt:not(.disabled):active { background: #e8eef9; }
+body:not(.adm) dialog.sheet .opt input { transition: transform .15s ease; }
+body:not(.adm) dialog.sheet .opt input:checked { animation: bump .28s cubic-bezier(.3, 1.6, .5, 1); }
+
+/* ---------- janelas fecham suavemente ---------- */
+/* Já fechada de verdade (a página volta a responder): só a imagem da janela some.
+   A sombra gigante faz o papel do fundo escuro enquanto desaparece. */
+dialog.sheet.is-closing {
+  position: fixed; inset: 0; z-index: 90; pointer-events: none;
+  box-shadow: 0 0 0 100vmax rgba(5, 15, 40, .55);
+  animation: sheet-down .22s ease forwards;
+}
+@keyframes sheet-down { to { transform: translateY(48px); opacity: 0; } }
+@keyframes pop-out { to { transform: scale(.97); opacity: 0; } }
+@media (min-width: 700px) { dialog.sheet.is-closing { animation: pop-out .18s ease forwards; } }
+
+/* ---------- sacola ---------- */
+/* No computador a sacola abre pela lateral; no celular continua subindo de baixo */
+@media (min-width: 700px) {
+  dialog.cart-sheet {
+    margin: 0 0 0 auto; max-width: 440px;
+    height: 100vh; height: 100dvh; max-height: 100vh; max-height: 100dvh;
+    border-radius: 20px 0 0 20px;
+  }
+  dialog.cart-sheet[open] { animation: drawer-in .32s cubic-bezier(.2, .8, .2, 1); }
+  dialog.cart-sheet.is-closing { animation: drawer-out .24s ease forwards; }
+  dialog.cart-sheet .sheet-body { flex: 1; }
+}
+@keyframes drawer-in { from { transform: translateX(100%); } to { transform: none; } }
+@keyframes drawer-out { to { transform: translateX(100%); opacity: 0; } }
+.sheet-body.step-in { animation: step-in .3s cubic-bezier(.2, .8, .2, 1); }
+@keyframes step-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+.cart-thumb { width: 56px; height: 56px; flex: none; border-radius: 12px; object-fit: cover; background: var(--blue-soft); }
+.cart-thumb.placeholder { display: grid; place-items: center; }
+.cart-thumb.placeholder svg { width: 70%; height: 70%; }
+.cart-item.is-new { animation: rise .35s ease both; }
+.cart-item.is-removing { animation: item-out .26s ease forwards; pointer-events: none; }
+@keyframes item-out { to { opacity: 0; transform: translateX(28px); } }
+.cart-item-unit { margin: 4px 0 0; font-size: 12.5px; color: var(--ink-3); }
+.total-row.is-updated span:last-child { animation: value-flash .6s ease; }
+@keyframes value-flash { 0% { transform: scale(1); } 35% { transform: scale(1.12); color: var(--basil); } 100% { transform: scale(1); } }
+.cart-sheet .state svg { animation: pop-in .4s cubic-bezier(.3, 1.6, .5, 1) both; }
+
+/* barra da sacola: ícone pulsa e o contador pula quando entra item */
+.cart-bar-left { display: inline-flex; align-items: center; gap: 12px; }
+.cart-bag { position: relative; display: inline-grid; place-items: center; width: 26px; height: 26px; }
+.cart-bag svg { width: 22px; height: 22px; }
+.cart-bag .cart-count {
+  position: absolute; top: -9px; right: -12px; margin: 0;
+  min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px;
+  display: grid; place-items: center;
+  background: #fff; color: var(--brand); font-size: 12px; font-weight: 800; line-height: 1;
+}
+.cart-bag.is-pulse { animation: bag-pulse .6s cubic-bezier(.3, 1.4, .5, 1); }
+.cart-bag.is-pulse::after {
+  content: ''; position: absolute; inset: -7px; border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, .75); pointer-events: none;
+  animation: bag-ring .6s ease-out forwards;
+}
+@keyframes bag-pulse { 0% { transform: scale(1); } 30% { transform: scale(1.25) rotate(-8deg); } 60% { transform: scale(.95) rotate(4deg); } 100% { transform: none; } }
+@keyframes bag-ring { from { transform: scale(.6); opacity: 1; } to { transform: scale(1.5); opacity: 0; } }
+.cart-total { font-variant-numeric: tabular-nums; }
+.cart-sheet .sheet-foot .btn-checkout { flex: 1.35; }
+@media (min-width: 700px) { .cart-sheet .sheet-foot .btn { white-space: nowrap; } }
+
+/* ---------- notificação "Produto adicionado à sacola!" ---------- */
+.notify {
+  position: fixed; left: 50%; top: calc(14px + env(safe-area-inset-top)); z-index: 70;
+  translate: -50% 0;
+  display: flex; align-items: center; gap: 12px;
+  width: max-content; min-width: 260px; max-width: calc(100% - 24px);
+  padding: 12px 18px 12px 12px; border-radius: 14px;
+  background: #fff; color: #0f1b33;
+  border-left: 4px solid var(--basil);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, .35);
+  animation: notify-in .34s cubic-bezier(.2, .8, .2, 1) both;
+}
+.notify.is-leaving { animation: notify-out .3s ease forwards; }
+@keyframes notify-in { from { opacity: 0; transform: translateY(-14px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes notify-out { to { opacity: 0; transform: translateY(-10px) scale(.98); } }
+.notify-icon { width: 32px; height: 32px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--basil); color: #fff; animation: pop-in .4s .08s cubic-bezier(.3, 1.6, .5, 1) both; }
+.notify-icon svg { width: 18px; height: 18px; stroke-width: 3; }
+.notify-text { min-width: 0; }
+.notify-text strong { display: block; font-size: 15px; line-height: 1.3; }
+.notify-text span { display: block; font-size: 13.5px; color: #4a5876; overflow-wrap: anywhere; }
+.notify-info { border-left-color: var(--blue); }
+.notify-info .notify-icon { background: var(--blue); }
+
+/* ---------- pedido preparado (antes de enviar pelo WhatsApp) ---------- */
+.prepared { position: relative; text-align: center; padding: 14px 8px 16px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+.prepared-mark {
+  position: relative; width: 64px; height: 64px; margin: 0 auto 10px;
+  border-radius: 50%; display: grid; place-items: center;
+  background: var(--basil); color: #fff;
+  box-shadow: 0 8px 22px rgba(31, 122, 77, .35);
+}
+.prepared-mark svg { width: 34px; height: 34px; stroke-width: 3; }
+.prepared.is-celebrating .prepared-mark { animation: pop-in .5s cubic-bezier(.3, 1.6, .5, 1) both; }
+.prepared.is-celebrating .prepared-mark svg path { stroke-dasharray: 22; stroke-dashoffset: 22; animation: draw .45s .28s ease forwards; }
+.prepared.is-celebrating > p, .prepared.is-celebrating > h3 { animation: rise .4s .25s ease both; }
+.prepared-kicker { margin: 0; color: var(--basil); font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.prepared-title { margin: 4px 0; font: 800 22px/1.2 var(--font-display); }
+.prepared-sub { margin: 0; color: var(--ink-2); font-size: 14.5px; }
+/* partículas discretas (criadas só se o aparelho aceitar animação) */
+.burst { position: absolute; inset: 0; pointer-events: none; }
+.burst i {
+  position: absolute; left: 50%; top: 50%;
+  width: 6px; height: 10px; margin: -5px 0 0 -3px; border-radius: 2px;
+  background: var(--c); opacity: 0;
+  animation: particle .85s var(--delay) cubic-bezier(.15, .7, .3, 1) forwards;
+}
+.burst i.dot { width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; }
+@keyframes particle {
+  0% { opacity: 1; transform: rotate(var(--a)) translateY(-24px) scale(.5); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: rotate(var(--a)) translateY(calc(-24px - var(--d))) scale(1); }
+}
+.btn-whatsapp svg { width: 20px; height: 20px; }
+.btn-whatsapp.is-highlight { box-shadow: 0 8px 22px rgba(31, 143, 78, .4); animation: wa-glow 1.6s ease-out .7s 2; }
+@keyframes wa-glow {
+  0% { box-shadow: 0 0 0 0 rgba(31, 143, 78, .55), 0 8px 22px rgba(31, 143, 78, .4); }
+  100% { box-shadow: 0 0 0 14px rgba(31, 143, 78, 0), 0 8px 22px rgba(31, 143, 78, .4); }
+}
+.state-sent svg { animation: pop-in .45s cubic-bezier(.3, 1.6, .5, 1) both; }
+.state-sent .btn svg { animation: none; width: 20px; height: 20px; margin: 0; }
