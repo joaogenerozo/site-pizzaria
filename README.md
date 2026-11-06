@@ -132,7 +132,7 @@ Também há um ambiente 100% local que imita o Supabase (PostgreSQL + PostgREST
 ```bash
 bash supabase/tests/run.sh                       # 85 testes de RLS e preço no banco
 LOCAL_ANON_KEY=$(node dev/make-jwt.mjs anon) \
-  npx playwright test                            # 70 testes no navegador (celular e desktop)
+  npx playwright test                            # 97 testes no navegador (celular e desktop)
 SEED=domingos bash dev/reset-db.sh               # abre o site local com o cardápio real
 ```
 

@@ -18,6 +18,8 @@ const ICONS = {
   plus: stroke('<path d="M12 5v14M5 12h14"/>'),
   left: stroke('<path d="m15 18-6-6 6-6"/>'),
   right: stroke('<path d="m9 18 6-6-6-6"/>'),
+  check: stroke('<path d="m5 12.5 4.5 4.5L19 7.5"/>'),
+  arrow: stroke('<path d="M5 12h14M13 6l6 6-6 6"/>'),
   chat: stroke('<path d="M20 11.5a8.5 8.5 0 0 1-12.4 7.6L3 20.5l1.4-4.4A8.5 8.5 0 1 1 20 11.5Z"/><path d="M8.5 10h7M8.5 13.5h4.5"/>'),
 };
 

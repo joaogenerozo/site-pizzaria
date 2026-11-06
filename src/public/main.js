@@ -10,6 +10,7 @@ import { priceItem } from '../lib/pricing.js';
 import { createCart } from '../lib/cart.js';
 import { openProductModal } from './productModal.js';
 import { openCartDrawer } from './cartDrawer.js';
+import { bump, softClose } from '../lib/motion.js';
 import { analyticsEnabled, consentChoice, initAnalytics, setConsent, track } from '../lib/analytics.js';
 
 const app = document.getElementById('app');
@@ -68,7 +69,7 @@ async function boot() {
   // descarta itens salvos que não existem mais ou ficaram inválidos
   const removed = cart.reconcile((item) => priceItem(catalog, item).ok);
   render();
-  if (removed) toast(`${removed} item(ns) do seu carrinho saíram do cardápio e foram removidos.`);
+  if (removed) toast(`${removed} item(ns) da sua sacola saíram do cardápio e foram removidos.`, { kind: 'info' });
 }
 
 // ---------------------------------------------------------------- estados
@@ -319,7 +320,7 @@ function renderWeeklyPromos() {
         'aria-label': `${w.flavor.name}, ${w.size.name} por ${formatCents(w.priceCents)} (de ${formatCents(w.regularCents)})`,
         onclick: () => openProductModal({
           catalog, productId: w.product.id, categoryName: category?.name ?? '', initial: { sizeId: w.size.id },
-          onConfirm: (sel) => { cart.add(sel); toast(`${w.product.name} adicionado ao carrinho`); },
+          onConfirm: (sel) => addToCart(sel, w.product.name),
         }),
       }, label);
     })),
@@ -346,7 +347,7 @@ function halfHalfPromo(todays, sameOffer) {
     onclick: () => openProductModal({
       catalog, productId: product.id, categoryName: category?.name ?? '', initial: { sizeId: size.id },
       promo: { sizeId: size.id, flavorIds, text: `Promoção de hoje: escolha dois sabores da promoção, pizza ${size.name} por ${formatCents(priceCents)}.` },
-      onConfirm: (sel) => { cart.add(sel); toast(`${product.name} adicionado ao carrinho`); },
+      onConfirm: (sel) => addToCart(sel, product.name),
     }),
   }, h('span', { class: 'promo-flavor' }, h('span', { class: 'promo-half-tag' }, 'Meio a meio'), ` ${text}`));
 }
@@ -398,7 +399,7 @@ function productCard(p, category) {
           : `${p.name}, ${p.kind === 'pizza' ? 'a partir de ' : ''}${formatCents(p.fromCents)}`,
       onclick: () => openProductModal({
         catalog, productId: p.id, categoryName: category.name,
-        onConfirm: (sel) => { cart.add(sel); toast(`${p.name} adicionado ao carrinho`); },
+        onConfirm: (sel) => addToCart(sel, p.name),
       }),
     }, p.name)),
     p.description ? h('p', { class: 'card-desc' }, p.description) : null,
@@ -471,6 +472,7 @@ function openInfo() {
             h('tr', {}, h('td', {}, z.name), h('td', {}, zoneFeeLabel(z.fee))))))) : null,
         catalog.payments.length ? h('div', {}, h('h3', {}, 'Formas de pagamento'),
           h('div', { class: 'chips' }, catalog.payments.map((p) => h('span', { class: 'chip' }, p.name)))) : null)));
+  softClose(dialog);
   dialog.addEventListener('close', () => dialog.remove());
   dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); });
   document.body.append(dialog);
@@ -569,26 +571,62 @@ function renderContactButton() {
     icon('chat'), h('span', {}, 'Fale conosco'));
 }
 
-// ---------------------------------------------------------------- carrinho (barra)
+// ---------------------------------------------------------------- sacola (barra)
+// A barra é montada uma vez e só tem os números atualizados: assim o ícone da
+// sacola pode "pulsar" e o contador "pular" quando um item entra.
+let lastCount = null;
 function renderCartBar() {
   const bar = document.getElementById('cart-bar');
   if (!bar) return;
-  clear(bar);
-  if (!cart.count) return;
+  if (!cart.count) { clear(bar); lastCount = 0; return; }
   const estimate = cart.items.reduce((sum, it) => {
     const r = priceItem(catalog, it);
     return sum + (r.ok ? r.lineCents : 0);
   }, 0);
-  bar.append(h('button', { class: 'btn', type: 'button', id: 'open-cart', onclick: () => openCartDrawer({ catalog, cart }) },
-    h('span', {}, h('span', { class: 'cart-count' }, String(cart.count)), 'Ver carrinho'),
-    h('span', {}, formatCents(estimate))));
+  let btn = bar.querySelector('#open-cart');
+  if (!btn) {
+    btn = h('button', { class: 'btn', type: 'button', id: 'open-cart', onclick: () => openCartDrawer({ catalog, cart }) },
+      h('span', { class: 'cart-bar-left' },
+        h('span', { class: 'cart-bag' }, icon('bag'), h('span', { class: 'cart-count' })),
+        h('span', {}, 'Ver sacola')),
+      h('span', { class: 'cart-total' }));
+    bar.append(btn);
+  }
+  const countEl = btn.querySelector('.cart-count');
+  const totalEl = btn.querySelector('.cart-total');
+  const total = formatCents(estimate);
+  countEl.textContent = String(cart.count);
+  btn.setAttribute('aria-label', `Ver sacola: ${cart.count} ${cart.count === 1 ? 'item' : 'itens'}, ${total}`);
+  if (totalEl.textContent && totalEl.textContent !== total) bump(totalEl);
+  totalEl.textContent = total;
+  // Só anima quando entra item (não ao abrir a página com a sacola guardada)
+  if (lastCount !== null && cart.count > lastCount) {
+    bump(btn.querySelector('.cart-bag'), 'is-pulse');
+    bump(countEl);
+  }
+  lastCount = cart.count;
 }
 
+// Produto confirmado na janela de personalização: entra na sacola e o cliente vê o retorno
+function addToCart(sel, name) {
+  cart.add(sel);
+  toast('Produto adicionado à sacola!', { detail: `${sel.quantity} × ${name}` });
+  // o card escolhido ganha um contorno rápido de confirmação
+  document.querySelectorAll(`.card[data-product="${sel.productId}"]`).forEach((c) => bump(c, 'is-added'));
+}
+
+// Notificação discreta: aparece por alguns segundos e some suavemente
 let toastTimer;
-export function toast(message) {
-  document.querySelector('.toast')?.remove();
+export function toast(message, { kind = 'success', detail = '' } = {}) {
+  document.querySelector('.notify')?.remove();
   clearTimeout(toastTimer);
-  const el = h('div', { class: 'toast', role: 'status' }, message);
+  const el = h('div', { class: `notify notify-${kind}`, role: 'status' },
+    h('span', { class: 'notify-icon', 'aria-hidden': 'true' }, icon(kind === 'success' ? 'check' : 'info')),
+    h('span', { class: 'notify-text' }, h('strong', {}, message), detail ? h('span', {}, detail) : null));
   document.body.append(el);
-  toastTimer = setTimeout(() => el.remove(), 2600);
+  toastTimer = setTimeout(() => {
+    el.classList.add('is-leaving');
+    el.addEventListener('animationend', () => el.remove(), { once: true });
+    setTimeout(() => el.remove(), 400);
+  }, 2800);
 }

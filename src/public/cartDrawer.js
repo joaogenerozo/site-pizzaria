@@ -1,5 +1,5 @@
 import { h, clear, add } from '../lib/dom.js';
-import { icon } from '../lib/icons.js';
+import { icon, illustration } from '../lib/icons.js';
 import { formatCents, toCents } from '../lib/money.js';
 import { describeSelection, toOrderItems } from '../lib/catalog.js';
 import { priceItem } from '../lib/pricing.js';
@@ -11,9 +11,10 @@ import {
 } from '../lib/whatsapp.js';
 import { openProductModal } from './productModal.js';
 import { track, gaItem, centsToReais } from '../lib/analytics.js';
+import { animateOut, bump, burst, softClose } from '../lib/motion.js';
 
 const CUSTOMER_KEY = 'cardapio-cliente-v1';
-const PAUSED_TEXT = 'A pizzaria não está recebendo pedidos agora. Seu carrinho fica guardado: volte mais tarde para enviar.';
+const PAUSED_TEXT = 'A pizzaria não está recebendo pedidos agora. Sua sacola fica guardada: volte mais tarde para enviar.';
 
 // Erros técnicos (rede, formato) não devem aparecer crus para o cliente.
 // As mensagens do cálculo do pedido no banco já são em português e seguem como estão.
@@ -62,6 +63,14 @@ export function openCartDrawer({ catalog, cart }) {
   let busy = false;
   let formErrors = {};
   let serverError = '';
+  let shakeSubmit = false;  // erro ao revisar: o botão balança uma vez
+  let celebrate = false;    // acabou de calcular o pedido: check e partículas na revisão
+  let locked = false;       // animação de remoção em andamento (evita remover o item errado)
+  let sending = false;      // evita abrir o WhatsApp duas vezes com toques repetidos
+  let lastStep = null;
+  // valores mostrados na última vez, para animar só o que mudou
+  let prevQty = new Map();
+  let prevEstimate = null;
 
   const title = h('h2', { class: 'sheet-title', id: 'cart-title' });
   const body = h('div', { class: 'sheet-body' });
@@ -74,6 +83,7 @@ export function openCartDrawer({ catalog, cart }) {
     body, foot);
 
   const unsubscribe = cart.subscribe(() => { if (step === 'cart') render(); });
+  softClose(dialog);
   dialog.addEventListener('close', () => { unsubscribe(); dialog.remove(); });
   dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); });
   document.body.append(dialog);
@@ -95,45 +105,79 @@ export function openCartDrawer({ catalog, cart }) {
     else if (step === 'details') renderDetails();
     else if (step === 'review') renderReview();
     else renderSent();
-    body.scrollTop = 0;
+    // troca de etapa com transição suave; atualizar a mesma etapa não move nada
+    if (step !== lastStep) {
+      body.scrollTop = 0;
+      if (lastStep !== null) bump(body, 'step-in');
+      lastStep = step;
+    }
   }
 
   // ------------------------------------------------------------ 1. carrinho
   function renderCart() {
-    title.textContent = 'Seu pedido';
+    title.textContent = 'Sua sacola';
     if (!cart.items.length) {
-      body.append(h('div', { class: 'state' }, icon('cart'), h('h2', {}, 'Carrinho vazio'), h('p', {}, 'Adicione itens do cardápio para continuar.')));
+      prevQty = new Map(); prevEstimate = null;
+      body.append(h('div', { class: 'state' }, icon('bag'), h('h2', {}, 'Sua sacola está vazia'), h('p', {}, 'Adicione itens do cardápio para continuar.')));
       foot.append(h('button', { class: 'btn', type: 'button', onclick: () => dialog.close() }, 'Ver cardápio'));
       return;
     }
     let estimate = 0;
+    const seenQty = new Map();
     const list = h('ul', { class: 'cart-list' });
     cart.items.forEach((item, index) => {
       const d = describeSelection(catalog, item);
       const price = priceItem(catalog, item);
       if (price.ok) estimate += price.lineCents;
-      list.append(h('li', { class: 'cart-item' },
+      const changed = prevQty.has(item.key) && prevQty.get(item.key) !== item.quantity;
+      seenQty.set(item.key, item.quantity);
+      const li = h('li', { class: `cart-item${prevQty.size && !prevQty.has(item.key) ? ' is-new' : ''}` },
+        itemThumb(item),
         h('div', { class: 'cart-item-main' },
           h('p', { class: 'cart-item-name' }, d.name),
           itemDetails(d),
           !price.ok ? h('p', { class: 'errors' }, price.errors.join(' ')) : null,
           h('div', { class: 'cart-item-actions' },
             h('button', { type: 'button', class: 'link-btn', onclick: () => editItem(index) }, 'Editar'),
-            h('button', { type: 'button', class: 'link-btn danger', onclick: () => cart.remove(index), 'aria-label': `Remover ${d.name}` }, 'Remover'))),
+            h('button', { type: 'button', class: 'link-btn danger', onclick: () => removeItem(li, index), 'aria-label': `Remover ${d.name}` }, 'Remover'))),
         h('div', { class: 'cart-item-side' },
-          h('span', { class: 'price' }, price.ok ? formatCents(price.lineCents) : '—'),
-          qtyControl(item.quantity, (q) => cart.setQuantity(index, q), d.name))));
+          h('span', { class: `price${changed ? ' is-bump' : ''}` }, price.ok ? formatCents(price.lineCents) : '—'),
+          qtyControl(item.quantity, (q) => (q < 1 ? removeItem(li, index) : cart.setQuantity(index, q)), d.name, changed)));
+      list.append(li);
     });
-    body.append(list,
-      h('div', { class: 'totals' }, row('Subtotal estimado', formatCents(estimate))),
+    const count = cart.count;
+    const estimateChanged = prevEstimate !== null && prevEstimate !== estimate;
+    prevQty = seenQty; prevEstimate = estimate;
+    // add() em vez de append(): o append nativo escrevia "null" na tela quando não há aviso de pausa
+    add(body, list,
+      h('div', { class: 'totals' },
+        row(`Subtotal estimado (${count} ${count === 1 ? 'item' : 'itens'})`, formatCents(estimate), estimateChanged ? 'is-updated' : '')),
       h('p', { class: 'hint' }, 'Descontos, taxa de entrega e total são confirmados na revisão do pedido.'),
       paused ? h('p', { class: 'notice warn', role: 'alert' }, PAUSED_TEXT) : null);
     foot.append(
-      h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => dialog.close() }, 'Adicionar mais'),
-      h('button', { class: 'btn', type: 'button', id: 'go-details', disabled: paused, onclick: () => {
+      h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => dialog.close() }, 'Continuar comprando'),
+      h('button', { class: 'btn btn-checkout', type: 'button', id: 'go-details', disabled: paused, onclick: () => {
         track('begin_checkout', { value: centsToReais(estimate), items: cart.items.map((it) => gaItem(catalog, it, priceItem(catalog, it).lineCents)).filter(Boolean) });
         step = 'details'; render();
-      } }, 'Continuar'));
+      } }, 'Finalizar pedido', icon('arrow')));
+  }
+
+  // Item sai deslizando antes de ser removido; trava novos toques até terminar
+  async function removeItem(li, index) {
+    if (locked) return;
+    locked = true;
+    await animateOut(li, 'is-removing', 300);
+    locked = false;
+    cart.remove(index);
+  }
+
+  function itemThumb(item) {
+    const product = catalog.products.get(item.productId);
+    const category = catalog.categories.find((c) => c.id === product?.category_id);
+    const src = product?.image_thumb_url || product?.image_url;
+    return src
+      ? h('img', { class: 'cart-thumb', src, alt: '', loading: 'lazy', decoding: 'async', width: 56, height: 56 })
+      : h('span', { class: 'cart-thumb placeholder', 'aria-hidden': 'true' }, illustration(product, category?.name ?? ''));
   }
 
   function editItem(index) {
@@ -204,7 +248,11 @@ export function openCartDrawer({ catalog, cart }) {
 
     if (serverError) f.append(h('p', { class: 'errors', role: 'alert' }, serverError));
     body.append(f);
-    foot.append(h('button', { class: 'btn', type: 'button', id: 'go-review', disabled: busy, onclick: goReview }, busy ? 'Calculando…' : 'Revisar pedido'));
+    foot.append(h('button', {
+      class: `btn btn-checkout${busy ? ' is-loading' : ''}${shakeSubmit ? ' is-shake' : ''}`, type: 'button', id: 'go-review',
+      disabled: busy, 'aria-busy': busy ? 'true' : null, onclick: goReview,
+    }, busy ? [h('span', { class: 'spinner', 'aria-hidden': 'true' }), 'Calculando…'] : ['Revisar pedido', icon('arrow')]));
+    shakeSubmit = false;
   }
 
   function input(name, attrs = {}) {
@@ -242,9 +290,11 @@ export function openCartDrawer({ catalog, cart }) {
   }
 
   async function goReview() {
+    if (busy) return; // Enter repetido no formulário não calcula duas vezes
     formErrors = validate();
     serverError = '';
     if (Object.keys(formErrors).length) {
+      shakeSubmit = true;
       render();
       dialog.querySelector('[aria-invalid="true"], .field-error')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
       dialog.querySelector('[aria-invalid="true"]')?.focus({ preventScroll: true });
@@ -259,10 +309,12 @@ export function openCartDrawer({ catalog, cart }) {
       const changeCents = form.needsChange ? toCents(form.changeFor) : null;
       if (changeCents !== null && changeCents < totalCents) {
         formErrors.changeFor = `O troco precisa ser para um valor maior ou igual ao total (${formatCents(totalCents)}).`;
+        shakeSubmit = true;
         step = 'details';
-      } else step = 'review';
+      } else { step = 'review'; celebrate = true; }
     } catch (err) {
       serverError = friendlyOrderError(err);
+      shakeSubmit = true;
       step = 'details';
     } finally {
       busy = false;
@@ -303,11 +355,23 @@ export function openCartDrawer({ catalog, cart }) {
     const order = buildOrder();
     const status = openStatus(catalog.hours, s.timezone);
     const canSend = isValidWhatsappNumber(s.whatsapp_number);
+    // O pedido foi só PREPARADO (calculado): quem confirma é a pizzaria, pelo WhatsApp
+    const mark = h('div', { class: 'prepared-mark', 'aria-hidden': 'true' }, icon('check'));
+    const prepared = h('div', { class: `prepared${celebrate ? ' is-celebrating' : ''}`, role: 'status' },
+      mark,
+      h('p', { class: 'prepared-kicker' }, 'Pedido preparado com sucesso!'),
+      h('h3', { class: 'prepared-title' }, 'Seu pedido está quase pronto!'),
+      h('p', { class: 'prepared-sub' }, 'Confira os detalhes e continue pelo WhatsApp para concluir seu pedido.'));
+    if (celebrate) requestAnimationFrame(() => burst(mark));
+    celebrate = false;
 
     add(body,
+      prepared,
       !status.open && status.known ? h('p', { class: 'notice warn' }, 'A pizzaria está fechada agora. Você pode enviar a mensagem, mas ela só será vista quando abrirmos.') : null,
-      h('ul', { class: 'cart-list' }, order.items.map((it) => h('li', { class: 'cart-item' },
-        h('div', { class: 'cart-item-main' }, h('p', { class: 'cart-item-name' }, `${it.quantity} × ${it.name}`), itemDetails(it)),
+      h('ul', { class: 'cart-list' }, order.items.map((it, i) => h('li', { class: 'cart-item' },
+        itemThumb(cart.items[i]),
+        h('div', { class: 'cart-item-main' }, h('p', { class: 'cart-item-name' }, `${it.quantity} × ${it.name}`), itemDetails(it),
+          it.quantity > 1 ? h('p', { class: 'cart-item-unit' }, `${formatCents(it.unitCents)} cada`) : null),
         h('div', { class: 'cart-item-side' }, h('span', { class: 'price' }, formatCents(it.lineCents)),
           it.weeklyPromo ? h('span', { class: 'badge promo' }, 'Promoção do dia') : null)))),
       h('div', { class: 'totals' },
@@ -332,30 +396,33 @@ export function openCartDrawer({ catalog, cart }) {
     // internos do Instagram/Facebook costumam aceitar melhor um toque num link.
     foot.append(canSend
       ? whatsappAnchor(whatsappLink(s.whatsapp_number, buildOrderMessage(order)), 'send-whatsapp', 'Enviar pedido pelo WhatsApp',
-        () => {
+        (e) => {
+          if (sending) { e.preventDefault(); return; }
+          sending = true;
+          setTimeout(() => { sending = false; }, 1500);
           // Abriu o WhatsApp com o pedido: é um contato (lead), não uma venda. A venda só
           // existe quando a pizzaria confirma por lá, e isso o site não fica sabendo.
           track('generate_lead', { lead_source: 'pedido', value: centsToReais(order.totalCents) });
           setTimeout(() => { step = 'sent'; render(); }, 0);
         })
-      : h('button', { class: 'btn btn-whatsapp', type: 'button', id: 'send-whatsapp', disabled: true }, 'Enviar pedido pelo WhatsApp'));
+      : h('button', { class: 'btn btn-whatsapp', type: 'button', id: 'send-whatsapp', disabled: true }, icon('chat'), 'Enviar pedido pelo WhatsApp'));
   }
 
   function whatsappAnchor(url, id, label, onclick) {
-    return h('a', { class: 'btn btn-whatsapp', id, href: url, target: '_blank', rel: 'noopener noreferrer', onclick }, label);
+    return h('a', { class: 'btn btn-whatsapp is-highlight', id, href: url, target: '_blank', rel: 'noopener noreferrer', onclick }, icon('chat'), label);
   }
 
   // ------------------------------------------------------------ 4. depois de abrir o WhatsApp
   function renderSent() {
     title.textContent = 'Quase lá';
-    body.append(h('div', { class: 'state' }, icon('phone'),
+    body.append(h('div', { class: 'state state-sent' }, icon('phone'),
       h('h2', {}, 'Confira o WhatsApp'),
       h('p', {}, 'Abrimos o WhatsApp com a mensagem do seu pedido. Toque em enviar por lá e aguarde a confirmação da pizzaria.'),
       h('p', { class: 'hint' }, 'Se o WhatsApp não abriu, toque no link abaixo.'),
       whatsappAnchor(whatsappLink(s.whatsapp_number, buildOrderMessage(buildOrder())), 'resend-whatsapp', 'Abrir o WhatsApp de novo')));
     foot.append(
       h('button', { class: 'btn btn-ghost', type: 'button', onclick: back }, 'Voltar'),
-      h('button', { class: 'btn', type: 'button', onclick: () => { cart.clear(); dialog.close(); } }, 'Já enviei, limpar carrinho'));
+      h('button', { class: 'btn', type: 'button', onclick: () => { cart.clear(); dialog.close(); } }, 'Já enviei, limpar sacola'));
   }
 }
 
@@ -374,9 +441,9 @@ function row(label, value, cls = '') {
   return h('div', { class: `total-row ${cls}` }, h('span', {}, label), h('span', {}, value));
 }
 
-function qtyControl(qty, onChange, name) {
+function qtyControl(qty, onChange, name, changed = false) {
   return h('div', { class: 'qty qty-sm' },
     h('button', { type: 'button', 'aria-label': qty === 1 ? `Remover ${name}` : `Diminuir ${name}`, onclick: () => onChange(qty - 1) }, icon('minus')),
-    h('output', {}, String(qty)),
+    h('output', { class: changed ? 'is-bump' : null }, String(qty)),
     h('button', { type: 'button', 'aria-label': `Aumentar ${name}`, disabled: qty >= MAX_QTY, onclick: () => onChange(qty + 1) }, icon('plus')));
 }
